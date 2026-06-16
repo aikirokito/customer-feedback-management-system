@@ -38,31 +38,19 @@ const AppRoutes = () => {
 
         {/* Customer */}
         <Route path="submit-feedback" element={
-<<<<<<< HEAD
           <RoleBasedRoute allowedRoles={['Customer']}>
-=======
-          <RoleBasedRoute allowedRoles={['CUSTOMER', 'ADMIN']}>
->>>>>>> b1f8e2620e3cb306a06b977c0e072848a468c397
             <SubmitFeedbackPage />
           </RoleBasedRoute>
         } />
         <Route path="my-feedbacks" element={
-<<<<<<< HEAD
           <RoleBasedRoute allowedRoles={['Customer']}>
-=======
-          <RoleBasedRoute allowedRoles={['CUSTOMER', 'ADMIN']}>
->>>>>>> b1f8e2620e3cb306a06b977c0e072848a468c397
             <MyFeedbacksPage />
           </RoleBasedRoute>
         } />
 
         {/* Support Staff + Manager + Admin */}
         <Route path="assigned-feedbacks" element={
-<<<<<<< HEAD
           <RoleBasedRoute allowedRoles={['SupportStaff', 'DepartmentManager', 'SystemAdmin']}>
-=======
-          <RoleBasedRoute allowedRoles={['SUPPORT_STAFF', 'MANAGER', 'ADMIN']}>
->>>>>>> b1f8e2620e3cb306a06b977c0e072848a468c397
             <AssignedFeedbacksPage />
           </RoleBasedRoute>
         } />
@@ -76,29 +64,17 @@ const AppRoutes = () => {
 
         {/* Admin only */}
         <Route path="manage-users" element={
-<<<<<<< HEAD
           <RoleBasedRoute allowedRoles={['SystemAdmin']}>
-=======
-          <RoleBasedRoute allowedRoles={['ADMIN']}>
->>>>>>> b1f8e2620e3cb306a06b977c0e072848a468c397
             <ManageUsersPage />
           </RoleBasedRoute>
         } />
         <Route path="reports" element={
-<<<<<<< HEAD
           <RoleBasedRoute allowedRoles={['SystemAdmin', 'DepartmentManager']}>
-=======
-          <RoleBasedRoute allowedRoles={['ADMIN', 'MANAGER']}>
->>>>>>> b1f8e2620e3cb306a06b977c0e072848a468c397
             <ReportsPage />
           </RoleBasedRoute>
         } />
         <Route path="audit-logs" element={
-<<<<<<< HEAD
           <RoleBasedRoute allowedRoles={['SystemAdmin']}>
-=======
-          <RoleBasedRoute allowedRoles={['ADMIN']}>
->>>>>>> b1f8e2620e3cb306a06b977c0e072848a468c397
             <AuditLogsPage />
           </RoleBasedRoute>
         } />

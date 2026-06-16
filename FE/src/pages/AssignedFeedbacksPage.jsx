@@ -2,15 +2,12 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import feedbackApi from '../api/feedbackApi';
 
-<<<<<<< HEAD
 const priorityBadge = (priority) => {
   if (priority === 'Urgent' || priority === 'High') return 'danger';
   if (priority === 'Medium') return 'warning';
   return 'info';
 };
 
-=======
->>>>>>> b1f8e2620e3cb306a06b977c0e072848a468c397
 const AssignedFeedbacksPage = () => {
   const [feedbacks, setFeedbacks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -22,11 +19,7 @@ const AssignedFeedbacksPage = () => {
   const fetchAssignedFeedbacks = async () => {
     try {
       const res = await feedbackApi.getAssignedFeedbacks();
-<<<<<<< HEAD
       setFeedbacks(res.data || []);
-=======
-      setFeedbacks(res.data);
->>>>>>> b1f8e2620e3cb306a06b977c0e072848a468c397
     } catch (err) {
       console.error(err);
     } finally {
@@ -71,21 +64,12 @@ const AssignedFeedbacksPage = () => {
                     <td className="font-semibold">#{item.id}</td>
                     <td className="truncate" style={{ maxWidth: 200 }}>{item.title}</td>
                     <td>
-<<<<<<< HEAD
                       <span className={`badge badge-${priorityBadge(item.priority)}`}>
                          {item.priority || 'Medium'}
                       </span>
                     </td>
                     <td>{item.status}</td>
-                    <td>{item.submittedByUserName || '---'}</td>
-=======
-                      <span className={`badge badge-${item.priority === 'HIGH' ? 'danger' : item.priority === 'MEDIUM' ? 'warning' : 'info'}`}>
-                         {item.priority || 'NORMAL'}
-                      </span>
-                    </td>
-                    <td>{item.status}</td>
-                    <td>{item.customer?.fullName || item.customer?.email}</td>
->>>>>>> b1f8e2620e3cb306a06b977c0e072848a468c397
+                    <td>{item.submittedByUserName || item.customer?.fullName || item.customer?.email || '---'}</td>
                     <td>
                       <Link to={`/feedbacks/${item.id}`} className="btn btn-sm btn-primary">
                         Xử lý

@@ -12,11 +12,7 @@ const ManageUsersPage = () => {
   const fetchUsers = async () => {
     try {
       const res = await userApi.getAllUsers();
-<<<<<<< HEAD
       setUsers(res.data || []);
-=======
-      setUsers(res.data);
->>>>>>> b1f8e2620e3cb306a06b977c0e072848a468c397
     } catch (err) {
       console.error(err);
     } finally {
@@ -40,7 +36,7 @@ const ManageUsersPage = () => {
               <thead>
                 <tr>
                   <th>ID</th>
-                  <th>Họ & Tên</th>
+                  <th>Họ &amp; Tên</th>
                   <th>Email</th>
                   <th>Vai Trò</th>
                   <th>Ngày Tạo</th>
@@ -48,7 +44,6 @@ const ManageUsersPage = () => {
                 </tr>
               </thead>
               <tbody>
-<<<<<<< HEAD
                 {users.length === 0 ? (
                   <tr><td colSpan={6} className="text-center py-4">Không có dữ liệu người dùng.</td></tr>
                 ) : users.map(u => (
@@ -57,22 +52,12 @@ const ManageUsersPage = () => {
                     <td className="font-semibold">{u.fullName || `${u.firstName || ''} ${u.lastName || ''}`.trim() || '---'}</td>
                     <td>{u.email}</td>
                     <td><span className="badge badge-primary">{u.roleName || u.role}</span></td>
-                    <td>{u.createdAtUtc ? new Date(u.createdAtUtc).toLocaleDateString('vi-VN') : '---'}</td>
+                    <td>{u.createdAtUtc ? new Date(u.createdAtUtc).toLocaleDateString('vi-VN') : u.createdAt ? new Date(u.createdAt).toLocaleDateString('vi-VN') : '---'}</td>
                     <td>
-                      <span className={`badge ${u.isActive ? 'badge-success' : 'badge-gray'}`}>
-                        {u.isActive ? 'Hoạt động' : 'Vô hiệu'}
+                      <span className={`badge ${u.isActive !== false ? 'badge-success' : 'badge-gray'}`}>
+                        {u.isActive !== false ? 'Hoạt động' : 'Vô hiệu'}
                       </span>
                     </td>
-=======
-                {users.map(u => (
-                  <tr key={u.id}>
-                    <td>{u.id}</td>
-                    <td className="font-semibold">{u.fullName || '---'}</td>
-                    <td>{u.email}</td>
-                    <td><span className="badge badge-primary">{u.role}</span></td>
-                    <td>{new Date(u.createdAt).toLocaleDateString('vi-VN')}</td>
-                    <td><span className="badge badge-success">Hoạt động</span></td>
->>>>>>> b1f8e2620e3cb306a06b977c0e072848a468c397
                   </tr>
                 ))}
               </tbody>

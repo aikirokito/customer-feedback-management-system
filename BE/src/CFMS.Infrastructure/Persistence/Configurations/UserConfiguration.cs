@@ -26,7 +26,7 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(u => u.GoogleSubject).HasMaxLength(256);
         // Partial unique index on GoogleSubject (only where not null) — handled via migration SQL
         builder.HasIndex(u => u.GoogleSubject)
-            .HasFilter("\"google_subject\" IS NOT NULL")
+            .HasFilter("\"GoogleSubject\" IS NOT NULL")
             .IsUnique();
 
         // Role stored as string for readability in the DB
