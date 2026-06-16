@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import feedbackApi from '../api/feedbackApi';
 
 const STATUS_LABELS = {
+<<<<<<< HEAD
   New: { label: 'Mới', color: 'warning' },
   Assigned: { label: 'Đã giao', color: 'info' },
   InProgress: { label: 'Đang xử lý', color: 'info' },
@@ -14,6 +15,14 @@ const STATUS_LABELS = {
 
 const formatDate = (value) => value ? new Date(value).toLocaleDateString('vi-VN') : '---';
 
+=======
+  PENDING: { label: 'Chờ xử lý', color: 'warning' },
+  IN_PROGRESS: { label: 'Đang xử lý', color: 'info' },
+  RESOLVED: { label: 'Đã giải quyết', color: 'success' },
+  CLOSED: { label: 'Đã đóng', color: 'gray' },
+};
+
+>>>>>>> b1f8e2620e3cb306a06b977c0e072848a468c397
 const MyFeedbacksPage = () => {
   const [feedbacks, setFeedbacks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -23,15 +32,23 @@ const MyFeedbacksPage = () => {
   useEffect(() => {
     fetchMyFeedbacks();
     if (successMsg) {
+<<<<<<< HEAD
       const timer = setTimeout(() => setSuccessMsg(''), 5000);
       return () => clearTimeout(timer);
+=======
+      setTimeout(() => setSuccessMsg(''), 5000);
+>>>>>>> b1f8e2620e3cb306a06b977c0e072848a468c397
     }
   }, [successMsg]);
 
   const fetchMyFeedbacks = async () => {
     try {
       const res = await feedbackApi.getMyFeedbacks();
+<<<<<<< HEAD
       setFeedbacks(res.data || []);
+=======
+      setFeedbacks(res.data);
+>>>>>>> b1f8e2620e3cb306a06b977c0e072848a468c397
     } catch (err) {
       console.error(err);
     } finally {
@@ -82,13 +99,21 @@ const MyFeedbacksPage = () => {
                   <tr key={item.id}>
                     <td className="font-semibold">#{item.id}</td>
                     <td className="truncate" style={{ maxWidth: 200 }}>{item.title}</td>
+<<<<<<< HEAD
                     <td>{item.category || '---'}</td>
+=======
+                    <td>{item.category?.name || '---'}</td>
+>>>>>>> b1f8e2620e3cb306a06b977c0e072848a468c397
                     <td>
                       <span className={`badge badge-${STATUS_LABELS[item.status]?.color || 'gray'}`}>
                         {STATUS_LABELS[item.status]?.label || item.status}
                       </span>
                     </td>
+<<<<<<< HEAD
                     <td>{formatDate(item.createdAtUtc)}</td>
+=======
+                    <td>{new Date(item.createdAt).toLocaleDateString('vi-VN')}</td>
+>>>>>>> b1f8e2620e3cb306a06b977c0e072848a468c397
                     <td>
                       <Link to={`/feedbacks/${item.id}`} className="btn btn-sm btn-secondary">
                         Xem chi tiết

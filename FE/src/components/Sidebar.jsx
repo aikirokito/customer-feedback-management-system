@@ -3,10 +3,17 @@ import { useAuth } from '../context/AuthContext';
 import './Sidebar.css';
 
 const ROLE_LABELS = {
+<<<<<<< HEAD
   Customer: 'Khách hàng',
   SupportStaff: 'Nhân viên hỗ trợ',
   DepartmentManager: 'Quản lý phòng ban',
   SystemAdmin: 'Quản trị viên',
+=======
+  CUSTOMER: 'Khách hàng',
+  SUPPORT_STAFF: 'Nhân viên hỗ trợ',
+  MANAGER: 'Quản lý phòng ban',
+  ADMIN: 'Quản trị viên',
+>>>>>>> b1f8e2620e3cb306a06b977c0e072848a468c397
 };
 
 const navItems = [
@@ -14,43 +21,71 @@ const navItems = [
     label: 'Dashboard',
     to: '/dashboard',
     icon: '📊',
+<<<<<<< HEAD
     roles: ['Customer', 'SupportStaff', 'DepartmentManager', 'SystemAdmin'],
+=======
+    roles: ['CUSTOMER', 'SUPPORT_STAFF', 'MANAGER', 'ADMIN'],
+>>>>>>> b1f8e2620e3cb306a06b977c0e072848a468c397
   },
   {
     label: 'Gửi phản hồi',
     to: '/submit-feedback',
     icon: '✍️',
+<<<<<<< HEAD
     roles: ['Customer'],
+=======
+    roles: ['CUSTOMER', 'ADMIN'],
+>>>>>>> b1f8e2620e3cb306a06b977c0e072848a468c397
   },
   {
     label: 'Phản hồi của tôi',
     to: '/my-feedbacks',
     icon: '📋',
+<<<<<<< HEAD
     roles: ['Customer'],
+=======
+    roles: ['CUSTOMER', 'ADMIN'],
+>>>>>>> b1f8e2620e3cb306a06b977c0e072848a468c397
   },
   {
     label: 'Phản hồi được giao',
     to: '/assigned-feedbacks',
     icon: '📌',
+<<<<<<< HEAD
     roles: ['SupportStaff', 'DepartmentManager', 'SystemAdmin'],
+=======
+    roles: ['SUPPORT_STAFF', 'MANAGER', 'ADMIN'],
+>>>>>>> b1f8e2620e3cb306a06b977c0e072848a468c397
   },
   {
     label: 'Báo cáo',
     to: '/reports',
     icon: '📈',
+<<<<<<< HEAD
     roles: ['DepartmentManager', 'SystemAdmin'],
+=======
+    roles: ['MANAGER', 'ADMIN'],
+>>>>>>> b1f8e2620e3cb306a06b977c0e072848a468c397
   },
   {
     label: 'Quản lý người dùng',
     to: '/manage-users',
     icon: '👥',
+<<<<<<< HEAD
     roles: ['SystemAdmin'],
+=======
+    roles: ['ADMIN'],
+>>>>>>> b1f8e2620e3cb306a06b977c0e072848a468c397
   },
   {
     label: 'Nhật ký hệ thống',
     to: '/audit-logs',
     icon: '🔍',
+<<<<<<< HEAD
     roles: ['SystemAdmin'],
+=======
+    roles: ['ADMIN'],
+>>>>>>> b1f8e2620e3cb306a06b977c0e072848a468c397
   },
 ];
 
@@ -67,9 +102,17 @@ const Sidebar = ({ isOpen, onToggle }) => {
 
   return (
     <>
+<<<<<<< HEAD
       <div className={`sidebar-overlay ${isOpen ? 'active' : ''}`} onClick={onToggle} />
 
       <aside className={`sidebar ${isOpen ? 'open' : 'collapsed'}`}>
+=======
+      {/* Mobile overlay */}
+      <div className={`sidebar-overlay ${isOpen ? 'active' : ''}`} onClick={onToggle} />
+
+      <aside className={`sidebar ${isOpen ? 'open' : 'collapsed'}`}>
+        {/* Logo */}
+>>>>>>> b1f8e2620e3cb306a06b977c0e072848a468c397
         <div className="sidebar-logo">
           <div className="logo-icon">💬</div>
           {isOpen && (
@@ -80,6 +123,10 @@ const Sidebar = ({ isOpen, onToggle }) => {
           )}
         </div>
 
+<<<<<<< HEAD
+=======
+        {/* User info */}
+>>>>>>> b1f8e2620e3cb306a06b977c0e072848a468c397
         {isOpen && user && (
           <div className="sidebar-user">
             <div className="user-avatar">
@@ -92,6 +139,10 @@ const Sidebar = ({ isOpen, onToggle }) => {
           </div>
         )}
 
+<<<<<<< HEAD
+=======
+        {/* Nav */}
+>>>>>>> b1f8e2620e3cb306a06b977c0e072848a468c397
         <nav className="sidebar-nav">
           {visibleItems.map((item) => (
             <NavLink
@@ -108,6 +159,10 @@ const Sidebar = ({ isOpen, onToggle }) => {
           ))}
         </nav>
 
+<<<<<<< HEAD
+=======
+        {/* Logout */}
+>>>>>>> b1f8e2620e3cb306a06b977c0e072848a468c397
         <div className="sidebar-footer">
           <button className="logout-btn" onClick={handleLogout} title={!isOpen ? 'Đăng xuất' : undefined}>
             <span className="nav-icon">🚪</span>

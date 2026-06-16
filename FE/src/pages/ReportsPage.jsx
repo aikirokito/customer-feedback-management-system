@@ -30,6 +30,7 @@ const ReportsPage = () => {
       <div className="card">
         {loading ? (
           <div className="loading-screen" style={{ height: 300 }}><div className="spinner" /></div>
+<<<<<<< HEAD
         ) : !data ? (
           <div className="empty-state">
             <div className="empty-icon">📈</div>
@@ -62,6 +63,13 @@ const ReportsPage = () => {
                 <div className="stat-label">Đã đóng</div>
               </div>
             </div>
+=======
+        ) : (
+          <div className="empty-state">
+            <div className="empty-icon">📈</div>
+            <h3>Chức năng đang phát triển</h3>
+            <p>Biểu đồ báo cáo sẽ sớm được cập nhật.</p>
+>>>>>>> b1f8e2620e3cb306a06b977c0e072848a468c397
           </div>
         )}
       </div>

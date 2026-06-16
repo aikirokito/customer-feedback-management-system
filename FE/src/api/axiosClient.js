@@ -1,5 +1,6 @@
 import axios from 'axios';
 
+<<<<<<< HEAD
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
 
 const unwrapApiResponse = (payload) => {
@@ -27,6 +28,9 @@ const getErrorMessage = (error) => {
 
   return payload.message || payload.title || error.message || 'Có lỗi xảy ra.';
 };
+=======
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
+>>>>>>> b1f8e2620e3cb306a06b977c0e072848a468c397
 
 const axiosClient = axios.create({
   baseURL: BASE_URL,
@@ -36,17 +40,26 @@ const axiosClient = axios.create({
   timeout: 10000,
 });
 
+<<<<<<< HEAD
+=======
+// Request interceptor – attach JWT token
+>>>>>>> b1f8e2620e3cb306a06b977c0e072848a468c397
 axiosClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('accessToken');
     if (token) {
+<<<<<<< HEAD
       config.headers.Authorization = `Bearer ${token}`;
+=======
+      config.headers['Authorization'] = `Bearer ${token}`;
+>>>>>>> b1f8e2620e3cb306a06b977c0e072848a468c397
     }
     return config;
   },
   (error) => Promise.reject(error)
 );
 
+<<<<<<< HEAD
 axiosClient.interceptors.response.use(
   (response) => {
     response.data = unwrapApiResponse(response.data);
@@ -64,10 +77,22 @@ axiosClient.interceptors.response.use(
       }
     }
 
+=======
+// Response interceptor – handle 401 globally
+axiosClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('user');
+      window.location.href = '/login';
+    }
+>>>>>>> b1f8e2620e3cb306a06b977c0e072848a468c397
     return Promise.reject(error);
   }
 );
 
+<<<<<<< HEAD
 export const asListResponse = (response) => {
   const data = response.data;
   if (Array.isArray(data)) return response;
@@ -88,4 +113,6 @@ export const asListResponse = (response) => {
   return response;
 };
 
+=======
+>>>>>>> b1f8e2620e3cb306a06b977c0e072848a468c397
 export default axiosClient;

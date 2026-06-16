@@ -12,7 +12,11 @@ const ManageUsersPage = () => {
   const fetchUsers = async () => {
     try {
       const res = await userApi.getAllUsers();
+<<<<<<< HEAD
       setUsers(res.data || []);
+=======
+      setUsers(res.data);
+>>>>>>> b1f8e2620e3cb306a06b977c0e072848a468c397
     } catch (err) {
       console.error(err);
     } finally {
@@ -44,6 +48,7 @@ const ManageUsersPage = () => {
                 </tr>
               </thead>
               <tbody>
+<<<<<<< HEAD
                 {users.length === 0 ? (
                   <tr><td colSpan={6} className="text-center py-4">Không có dữ liệu người dùng.</td></tr>
                 ) : users.map(u => (
@@ -58,6 +63,16 @@ const ManageUsersPage = () => {
                         {u.isActive ? 'Hoạt động' : 'Vô hiệu'}
                       </span>
                     </td>
+=======
+                {users.map(u => (
+                  <tr key={u.id}>
+                    <td>{u.id}</td>
+                    <td className="font-semibold">{u.fullName || '---'}</td>
+                    <td>{u.email}</td>
+                    <td><span className="badge badge-primary">{u.role}</span></td>
+                    <td>{new Date(u.createdAt).toLocaleDateString('vi-VN')}</td>
+                    <td><span className="badge badge-success">Hoạt động</span></td>
+>>>>>>> b1f8e2620e3cb306a06b977c0e072848a468c397
                   </tr>
                 ))}
               </tbody>
