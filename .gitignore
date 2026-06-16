@@ -1,0 +1,16 @@
+bin/
+obj/
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.log
+logs/
+.env
+.env.*
+appsettings.Development.json
+appsettings.Local.json
+secrets.json
+TestResults/
+coverage/

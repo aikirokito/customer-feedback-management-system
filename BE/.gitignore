@@ -1,0 +1,21 @@
+## Ignore Visual Studio/dotnet temporary files and build output
+[Bb]in/
+[Oo]bj/
+[Tt]emp/
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Diagnostic and Log files
+logs/
+*.log
+
+# User secrets
+usersecrets/
+secrets.json
+
+# Rider / IntelliJ Rider IDE
+.idea/
+*.sln.iml
