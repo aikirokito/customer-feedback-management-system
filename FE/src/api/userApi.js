@@ -1,13 +1,21 @@
 import axiosClient, { asListResponse } from './axiosClient';
 
 const userApi = {
-  getAllUsers: (params) => axiosClient.get('/Admin/users', { params }).then(asListResponse),
+  getAllUsers: (params) => axiosClient.get('/admin/users', { params }).then(asListResponse),
   getUserById: (id) => axiosClient.get(`/Users/${id}`),
   updateMyProfile: (data) => axiosClient.put('/Users/me', data),
-  updateUserRole: (id, role) => axiosClient.patch(`/Admin/users/${id}/role`, { role }),
-  updateUserStatus: (id, isActive) => axiosClient.patch(`/Admin/users/${id}/status`, { isActive }),
+
+  // Admin user management
+  updateUserRole: (id, role) => axiosClient.patch(`/admin/users/${id}/role`, { role }),
+  updateUserStatus: (id, isActive) => axiosClient.patch(`/admin/users/${id}/status`, { isActive }),
+  deactivateUser: (id) => axiosClient.patch(`/Users/${id}/deactivate`),
+  reactivateUser: (id) => axiosClient.patch(`/Users/${id}/reactivate`),
   deleteUser: (id) => axiosClient.delete(`/Users/${id}`),
 
+  // Support Staff lookup (for Manager/Admin assignment UI)
+  getSupportStaff: () => axiosClient.get('/Users/support-staff').then(asListResponse),
+
+  // Reports
   getReports: (params) => axiosClient.get('/Reports/summary', { params }),
   getFeedbackByStatus: (params) => axiosClient.get('/Reports/feedback-by-status', { params }),
   getFeedbackByCategory: (params) => axiosClient.get('/Reports/feedback-by-category', { params }),
@@ -15,8 +23,10 @@ const userApi = {
   getFeedbackByMonth: (params) => axiosClient.get('/Reports/feedback-by-month', { params }),
   getStaffWorkload: (params) => axiosClient.get('/Reports/staff-workload', { params }).then(asListResponse),
 
-  getAuditLogs: (params) => axiosClient.get('/Admin/audit-logs', { params }).then(asListResponse),
+  // Audit Logs
+  getAuditLogs: (params) => axiosClient.get('/admin/audit-logs', { params }).then(asListResponse),
 
+  // Notifications
   getNotifications: (params) => axiosClient.get('/Notifications', { params }),
   getUnreadCount: () => axiosClient.get('/Notifications/unread-count'),
   markNotificationRead: (id) => axiosClient.patch(`/Notifications/${id}/read`),

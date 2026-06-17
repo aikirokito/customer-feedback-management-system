@@ -1,6 +1,8 @@
+using CFMS.Application.Common.Exceptions;
 using CFMS.Application.DTOs.Auth;
 using CFMS.Application.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CFMS.Api.Controllers;
@@ -25,8 +27,15 @@ public class AuthController : BaseController
     [ProducesResponseType(401)]
     public async Task<IActionResult> Login([FromBody] LoginRequest request, CancellationToken ct)
     {
-        var result = await _authService.LoginAsync(request, CurrentUserIp, ct);
-        return OkResponse(result, "Logged in successfully.");
+        try
+        {
+            var result = await _authService.LoginAsync(request, CurrentUserIp, ct);
+            return OkResponse(result, "Logged in successfully.");
+        }
+        catch (UnauthorizedException ex)
+        {
+            return FailResponse(ex.Message, StatusCodes.Status401Unauthorized);
+        }
     }
 
     /// <summary>Register a new Customer account.</summary>

@@ -21,10 +21,32 @@ const ROLE_ALIASES = {
   SystemAdmin: APP_ROLES.ADMIN,
 };
 
+export const normalizeRole = (roleValue) => ROLE_ALIASES[roleValue] || roleValue;
+
+export const getDefaultRouteForRole = (roleOrUser) => {
+  const roleValue = typeof roleOrUser === 'string'
+    ? roleOrUser
+    : roleOrUser?.roleName || roleOrUser?.role;
+
+  const role = normalizeRole(roleValue);
+
+  switch (role) {
+    case APP_ROLES.CUSTOMER:
+      return '/dashboard';
+    case APP_ROLES.SUPPORT_STAFF:
+    case APP_ROLES.MANAGER:
+      return '/assigned-feedbacks';
+    case APP_ROLES.ADMIN:
+      return '/manage-users';
+    default:
+      return '/dashboard';
+  }
+};
+
 const normalizeUser = (user) => {
   if (!user) return null;
   const roleValue = user.roleName || user.role;
-  const role = ROLE_ALIASES[roleValue] || roleValue;
+  const role = normalizeRole(roleValue);
 
   return {
     ...user,
@@ -34,12 +56,22 @@ const normalizeUser = (user) => {
   };
 };
 
+const clearStoredAuth = () => {
+  localStorage.removeItem('accessToken');
+  localStorage.removeItem('refreshToken');
+  localStorage.removeItem('user');
+};
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(() => {
     try {
+      const token = localStorage.getItem('accessToken');
       const stored = localStorage.getItem('user');
-      return stored ? normalizeUser(JSON.parse(stored)) : null;
+
+      if (!token || !stored) return null;
+      return normalizeUser(JSON.parse(stored));
     } catch {
+      clearStoredAuth();
       return null;
     }
   });
@@ -48,30 +80,45 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     const token = localStorage.getItem('accessToken');
-    if (token && !user) {
-      authApi.getProfile()
-        .then((res) => {
-          const normalized = normalizeUser(res.data);
-          setUser(normalized);
-          localStorage.setItem('user', JSON.stringify(normalized));
-        })
-        .catch(() => {
-          localStorage.removeItem('accessToken');
-          localStorage.removeItem('refreshToken');
-          localStorage.removeItem('user');
-          setUser(null);
-        })
-        .finally(() => setInitializing(false));
-    } else {
+
+    if (!token) {
+      clearStoredAuth();
+      setUser(null);
       setInitializing(false);
+      return;
     }
+
+    // Always verify the token against the backend on app start.
+    // This prevents stale localStorage roles after changing roles in Supabase.
+    authApi.getProfile()
+      .then((res) => {
+        const normalized = normalizeUser(res.data);
+        setUser(normalized);
+        localStorage.setItem('user', JSON.stringify(normalized));
+      })
+      .catch(() => {
+        clearStoredAuth();
+        setUser(null);
+      })
+      .finally(() => setInitializing(false));
   }, []);
 
   const login = useCallback(async (credentials) => {
     setLoading(true);
     try {
-      const res = await authApi.login(credentials);
+      const res = await authApi.login({
+        email: credentials.email?.trim(),
+        password: credentials.password,
+      });
       const auth = res.data;
+
+      if (!auth?.accessToken || !auth?.refreshToken || !auth?.user) {
+        return {
+          success: false,
+          message: 'Phản hồi đăng nhập không hợp lệ từ máy chủ.',
+        };
+      }
+
       const userData = normalizeUser(auth.user);
 
       localStorage.setItem('accessToken', auth.accessToken);
@@ -79,7 +126,7 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('user', JSON.stringify(userData));
       setUser(userData);
 
-      return { success: true, user: userData };
+      return { success: true, user: userData, redirectTo: getDefaultRouteForRole(userData) };
     } catch (err) {
       const message = err.normalizedMessage || 'Đăng nhập thất bại. Vui lòng thử lại.';
       return { success: false, message };
@@ -110,9 +157,7 @@ export const AuthProvider = ({ children }) => {
     } catch {
       // Ignore server-side logout errors so the local session is still cleared.
     } finally {
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
-      localStorage.removeItem('user');
+      clearStoredAuth();
       setUser(null);
     }
   }, []);
@@ -120,7 +165,7 @@ export const AuthProvider = ({ children }) => {
   const hasRole = useCallback((roles) => {
     if (!user) return false;
     const allowed = Array.isArray(roles) ? roles : [roles];
-    return allowed.map(role => ROLE_ALIASES[role] || role).includes(user.role);
+    return allowed.map(role => normalizeRole(role)).includes(user.role);
   }, [user]);
 
   return (

@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAuth, getDefaultRouteForRole } from '../context/AuthContext';
 import './AuthPages.css';
 
 const LoginPage = () => {
   const { login, loading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const from = location.state?.from?.pathname || '/dashboard';
+  const from = location.state?.from?.pathname;
+  const publicRedirects = ['/login', '/register', '/unauthorized'];
 
   const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
@@ -26,7 +27,8 @@ const LoginPage = () => {
     }
     const result = await login(form);
     if (result.success) {
-      navigate(from, { replace: true });
+      const safeFrom = from && !publicRedirects.includes(from) ? from : null;
+      navigate(safeFrom || result.redirectTo || getDefaultRouteForRole(result.user), { replace: true });
     } else {
       setError(result.message);
     }

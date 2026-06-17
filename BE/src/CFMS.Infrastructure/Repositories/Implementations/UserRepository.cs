@@ -17,7 +17,7 @@ public class UserRepository : Repository<User>, IUserRepository
         => await _dbSet.FirstOrDefaultAsync(u => u.GoogleSubject == googleSubject, ct);
 
     public async Task<IEnumerable<User>> GetByRoleAsync(UserRole role, CancellationToken ct = default)
-        => await _dbSet.Where(u => u.Role == role && u.IsActive).ToListAsync(ct);
+        => await _dbSet.Where(u => u.Role == role && u.Status == UserStatus.Active).ToListAsync(ct);
 
     public async Task<bool> IsEmailTakenAsync(string email, CancellationToken ct = default)
         => await _dbSet.AnyAsync(u => u.Email == email.ToLowerInvariant(), ct);

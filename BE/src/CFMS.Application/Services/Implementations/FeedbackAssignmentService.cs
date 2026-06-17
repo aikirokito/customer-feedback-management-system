@@ -85,7 +85,6 @@ public class FeedbackAssignmentService : IFeedbackAssignmentService
             });
         }
 
-        _unitOfWork.Feedbacks.Update(feedback);
         await _unitOfWork.SaveChangesAsync(ct);
 
         await _auditLogService.LogAsync(assignedByUserId, AuditAction.Assignment, nameof(FeedbackAssignment), assignment.Id, null, $"Assigned feedback {feedback.Id} to user {assignee.Id}", null, ct);
@@ -123,7 +122,6 @@ public class FeedbackAssignmentService : IFeedbackAssignmentService
 
         feedback.AssignedToUserId = null;
         feedback.UpdatedAtUtc = DateTime.UtcNow;
-        _unitOfWork.Feedbacks.Update(feedback);
         await _unitOfWork.SaveChangesAsync(ct);
 
         await _auditLogService.LogAsync(requestingUserId, AuditAction.Assignment, nameof(Feedback), feedback.Id, null, "Feedback unassigned", null, ct);

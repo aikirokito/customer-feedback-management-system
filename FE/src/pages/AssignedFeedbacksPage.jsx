@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import feedbackApi from '../api/feedbackApi';
+import userApi from '../api/userApi';
+import { useAuth } from '../context/AuthContext';
 
 const priorityBadge = (priority) => {
   if (priority === 'Urgent' || priority === 'High') return 'danger';
@@ -8,31 +10,160 @@ const priorityBadge = (priority) => {
   return 'info';
 };
 
+const statusBadge = (status) => {
+  switch (status) {
+    case 'New': return 'info';
+    case 'Assigned': return 'primary';
+    case 'InProgress': return 'warning';
+    case 'Resolved': return 'success';
+    case 'Closed': return 'gray';
+    case 'Rejected': return 'danger';
+    default: return 'primary';
+  }
+};
+
 const AssignedFeedbacksPage = () => {
+  const { hasRole } = useAuth();
+  const isManager = hasRole(['DepartmentManager', 'SystemAdmin']);
+
   const [feedbacks, setFeedbacks] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [staffList, setStaffList] = useState([]);
+  const [message, setMessage] = useState({ text: '', type: '' });
 
-  useEffect(() => {
-    fetchAssignedFeedbacks();
-  }, []);
+  // Filters (Manager/Admin only)
+  const [statusFilter, setStatusFilter] = useState('');
+  const [priorityFilter, setPriorityFilter] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
 
-  const fetchAssignedFeedbacks = async () => {
+  // Assignment state
+  const [assigningId, setAssigningId] = useState(null);
+  const [selectedStaff, setSelectedStaff] = useState('');
+  const [assignLoading, setAssignLoading] = useState(false);
+
+  const fetchFeedbacks = useCallback(async () => {
+    setLoading(true);
     try {
-      const res = await feedbackApi.getAssignedFeedbacks();
+      const params = {};
+      if (statusFilter) params.status = statusFilter;
+      if (priorityFilter) params.priority = priorityFilter;
+      if (searchTerm) params.searchTerm = searchTerm;
+      const res = await feedbackApi.getAssignedFeedbacks(params);
       setFeedbacks(res.data || []);
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
     }
+  }, [statusFilter, priorityFilter, searchTerm]);
+
+  useEffect(() => {
+    fetchFeedbacks();
+  }, [fetchFeedbacks]);
+
+  useEffect(() => {
+    if (isManager) {
+      userApi.getSupportStaff()
+        .then(res => setStaffList(res.data || []))
+        .catch(err => console.error('Failed to load support staff:', err));
+    }
+  }, [isManager]);
+
+  const showMessage = (text, type = 'success') => {
+    setMessage({ text, type });
+    setTimeout(() => setMessage({ text: '', type: '' }), 4000);
+  };
+
+  const handleAssign = async (feedbackId) => {
+    if (!selectedStaff) {
+      showMessage('Vui lòng chọn nhân viên hỗ trợ.', 'error');
+      return;
+    }
+    setAssignLoading(true);
+    try {
+      await feedbackApi.assignFeedback(feedbackId, { assignToUserId: selectedStaff });
+      showMessage('Giao phản hồi thành công!');
+      setAssigningId(null);
+      setSelectedStaff('');
+      fetchFeedbacks();
+    } catch (err) {
+      showMessage('Lỗi: ' + (err.normalizedMessage || err.message), 'error');
+    } finally {
+      setAssignLoading(false);
+    }
+  };
+
+  const canAssign = (item) => {
+    return isManager && (item.status === 'New' || !item.assignedToUserName);
   };
 
   return (
     <div className="assigned-feedbacks-page">
       <div className="page-header">
-        <h1>Phản Hồi Được Giao</h1>
-        <p>Danh sách các phản hồi bạn cần xử lý.</p>
+        <h1>{isManager ? 'Quản Lý Phản Hồi' : 'Phản Hồi Được Giao'}</h1>
+        <p>{isManager ? 'Xem và giao phản hồi cho nhân viên hỗ trợ.' : 'Danh sách các phản hồi bạn cần xử lý.'}</p>
       </div>
+
+      {message.text && (
+        <div className={`alert alert-${message.type === 'error' ? 'error' : 'success'} mb-4`}>
+          {message.text}
+        </div>
+      )}
+
+      {/* Filters — Manager/Admin only */}
+      {isManager && (
+        <div className="card mb-4">
+          <div className="card-header">
+            <h3 className="card-title">Bộ lọc</h3>
+          </div>
+          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', padding: '0 1.5rem 1.5rem' }}>
+            <div className="form-group" style={{ flex: 1, minWidth: 180, marginBottom: 0 }}>
+              <label className="form-label">Trạng thái</label>
+              <select
+                id="filter-status"
+                className="form-control"
+                value={statusFilter}
+                onChange={e => setStatusFilter(e.target.value)}
+              >
+                <option value="">Tất cả</option>
+                <option value="New">New</option>
+                <option value="Assigned">Assigned</option>
+                <option value="InProgress">InProgress</option>
+                <option value="WaitingForCustomer">WaitingForCustomer</option>
+                <option value="Resolved">Resolved</option>
+                <option value="Rejected">Rejected</option>
+                <option value="Closed">Closed</option>
+              </select>
+            </div>
+            <div className="form-group" style={{ flex: 1, minWidth: 180, marginBottom: 0 }}>
+              <label className="form-label">Mức độ ưu tiên</label>
+              <select
+                id="filter-priority"
+                className="form-control"
+                value={priorityFilter}
+                onChange={e => setPriorityFilter(e.target.value)}
+              >
+                <option value="">Tất cả</option>
+                <option value="Low">Low</option>
+                <option value="Medium">Medium</option>
+                <option value="High">High</option>
+                <option value="Urgent">Urgent</option>
+              </select>
+            </div>
+            <div className="form-group" style={{ flex: 2, minWidth: 200, marginBottom: 0 }}>
+              <label className="form-label">Tìm kiếm</label>
+              <input
+                id="filter-search"
+                type="text"
+                className="form-control"
+                placeholder="Nhập từ khóa..."
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="card">
         {loading ? (
@@ -43,7 +174,7 @@ const AssignedFeedbacksPage = () => {
           <div className="empty-state">
             <div className="empty-icon">☕</div>
             <h3>Không có phản hồi nào</h3>
-            <p>Tuyệt vời! Bạn đã xử lý xong mọi thứ.</p>
+            <p>{isManager ? 'Không tìm thấy phản hồi phù hợp.' : 'Tuyệt vời! Bạn đã xử lý xong mọi thứ.'}</p>
           </div>
         ) : (
           <div className="table-wrap">
@@ -55,27 +186,83 @@ const AssignedFeedbacksPage = () => {
                   <th>Ưu Tiên</th>
                   <th>Trạng Thái</th>
                   <th>Người Gửi</th>
+                  {isManager && <th>Người Xử Lý</th>}
                   <th>Hành Động</th>
                 </tr>
               </thead>
               <tbody>
                 {feedbacks.map(item => (
                   <tr key={item.id}>
-                    <td className="font-semibold">#{item.id}</td>
+                    <td className="font-semibold">#{item.id?.substring?.(0, 8) || item.id}</td>
                     <td className="truncate" style={{ maxWidth: 200 }}>{item.title}</td>
                     <td>
                       <span className={`badge badge-${priorityBadge(item.priority)}`}>
                          {item.priority || 'Medium'}
                       </span>
                     </td>
-                    <td>{item.status}</td>
-                    <td>{item.submittedByUserName || item.customer?.fullName || item.customer?.email || '---'}</td>
                     <td>
+                      <span className={`badge badge-${statusBadge(item.status)}`}>
+                        {item.status}
+                      </span>
+                    </td>
+                    <td>{item.submittedByUserName || item.customer?.fullName || item.customer?.email || '---'}</td>
+                    {isManager && (
+                      <td>{item.assignedToUserName || <span className="text-muted">Chưa giao</span>}</td>
+                    )}
+                    <td style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
                       <Link to={`/feedbacks/${item.id}`} className="btn btn-sm btn-primary">
                         Xử lý
                       </Link>
+                      {canAssign(item) && assigningId !== item.id && (
+                        <button
+                          className="btn btn-sm btn-secondary"
+                          onClick={() => { setAssigningId(item.id); setSelectedStaff(''); }}
+                        >
+                          Giao việc
+                        </button>
+                      )}
                     </td>
                   </tr>
+                ))}
+
+                {/* Inline assignment row */}
+                {feedbacks.map(item => (
+                  assigningId === item.id && (
+                    <tr key={`assign-${item.id}`} style={{ background: 'var(--bg-input)' }}>
+                      <td colSpan={isManager ? 7 : 6}>
+                        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', padding: '0.5rem 0' }}>
+                          <span className="font-semibold">Giao cho:</span>
+                          <select
+                            id={`assign-staff-${item.id}`}
+                            className="form-control"
+                            style={{ flex: 1, maxWidth: 300 }}
+                            value={selectedStaff}
+                            onChange={e => setSelectedStaff(e.target.value)}
+                          >
+                            <option value="">-- Chọn nhân viên --</option>
+                            {staffList.map(s => (
+                              <option key={s.id} value={s.id}>
+                                {s.fullName || `${s.firstName} ${s.lastName}`} ({s.email})
+                              </option>
+                            ))}
+                          </select>
+                          <button
+                            className="btn btn-sm btn-primary"
+                            disabled={assignLoading || !selectedStaff}
+                            onClick={() => handleAssign(item.id)}
+                          >
+                            {assignLoading ? 'Đang giao...' : 'Xác nhận'}
+                          </button>
+                          <button
+                            className="btn btn-sm btn-secondary"
+                            onClick={() => setAssigningId(null)}
+                          >
+                            Hủy
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
                 ))}
               </tbody>
             </table>

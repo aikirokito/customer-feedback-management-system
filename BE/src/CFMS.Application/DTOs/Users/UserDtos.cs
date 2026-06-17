@@ -34,3 +34,8 @@ public class UpdateUserRoleRequest
 {
     public UserRole Role { get; set; }
 }
+
+public class UpdateUserStatusRequest
+{
+    public bool IsActive { get; set; }
+}

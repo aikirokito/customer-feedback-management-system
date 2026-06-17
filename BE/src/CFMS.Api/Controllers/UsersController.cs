@@ -1,3 +1,5 @@
+using AutoMapper;
+using CFMS.Application.Common.Interfaces;
 using CFMS.Application.DTOs.Users;
 using CFMS.Application.Services.Interfaces;
 using CFMS.Domain.Constants;
@@ -15,10 +17,14 @@ namespace CFMS.Api.Controllers;
 public class UsersController : BaseController
 {
     private readonly IUserService _userService;
+    private readonly IUnitOfWork _unitOfWork;
+    private readonly IMapper _mapper;
 
-    public UsersController(IUserService userService)
+    public UsersController(IUserService userService, IUnitOfWork unitOfWork, IMapper mapper)
     {
         _userService = userService;
+        _unitOfWork = unitOfWork;
+        _mapper = mapper;
     }
 
     [HttpGet]
@@ -65,6 +71,7 @@ public class UsersController : BaseController
     }
 
     [HttpPatch("{id:guid}/role")]
+    [Route("~/api/admin/users/{id:guid}/role")]
     [Authorize(Roles = RoleNames.SystemAdmin)]
     [ProducesResponseType(204)]
     [ProducesResponseType(403)]
@@ -99,5 +106,49 @@ public class UsersController : BaseController
     {
         await _userService.DeleteUserAsync(id, ct);
         return NoContentResponse();
+    }
+
+    /// <summary>
+    /// Admin alias: toggle user active status via { "isActive": true/false }.
+    /// </summary>
+    [HttpPatch]
+    [Route("~/api/admin/users/{id:guid}/status")]
+    [Authorize(Roles = RoleNames.SystemAdmin)]
+    [ProducesResponseType(204)]
+    [ProducesResponseType(404)]
+    public async Task<IActionResult> UpdateUserStatus([FromRoute] Guid id, [FromBody] UpdateUserStatusRequest request, CancellationToken ct)
+    {
+        if (request.IsActive)
+            await _userService.ReactivateUserAsync(id, ct);
+        else
+            await _userService.DeactivateUserAsync(id, ct);
+
+        return NoContentResponse();
+    }
+
+    /// <summary>
+    /// Returns active Support Staff users for assignment dropdowns.
+    /// </summary>
+    [HttpGet("support-staff")]
+    [Authorize(Roles = $"{RoleNames.DepartmentManager},{RoleNames.SystemAdmin}")]
+    [ProducesResponseType(200)]
+    public async Task<IActionResult> GetSupportStaff(CancellationToken ct)
+    {
+        var users = await _unitOfWork.Users.GetByRoleAsync(UserRole.SupportStaff, ct);
+        var activeUsers = users.Where(u => u.Status == Domain.Enums.UserStatus.Active);
+        
+        var dtos = activeUsers.Select(u => new UserListItemDto
+        {
+            Id = u.Id,
+            Email = u.Email,
+            FirstName = u.FirstName,
+            LastName = u.LastName,
+            AvatarUrl = u.AvatarUrl,
+            Role = u.Role,
+            IsActive = u.Status == Domain.Enums.UserStatus.Active,
+            CreatedAtUtc = u.CreatedAtUtc
+        }).ToList();
+        
+        return OkResponse(dtos);
     }
 }
