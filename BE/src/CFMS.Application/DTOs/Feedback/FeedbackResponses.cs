@@ -8,6 +8,7 @@ public class FeedbackListItemDto
     public Guid Id { get; set; }
     public string Title { get; set; } = string.Empty;
     public FeedbackCategory Category { get; set; }
+    public int? Rating { get; set;}
     public FeedbackStatus Status { get; set; }
     public FeedbackPriority Priority { get; set; }
     public string SubmittedByUserName { get; set; } = string.Empty;

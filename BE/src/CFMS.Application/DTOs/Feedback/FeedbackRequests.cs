@@ -7,6 +7,7 @@ public class CreateFeedbackRequest
     public string Title { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public FeedbackCategory Category { get; set; }
+    public int? Rating { get; set;}
 }
 
 public class UpdateFeedbackRequest

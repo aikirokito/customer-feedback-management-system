@@ -77,7 +77,7 @@ public class UsersController : BaseController
     [ProducesResponseType(403)]
     public async Task<IActionResult> UpdateRole([FromRoute] Guid id, [FromBody] UpdateUserRoleRequest request, CancellationToken ct)
     {
-        await _userService.UpdateUserRoleAsync(id, request, ct);
+        await _userService.UpdateUserRoleAsync(id, request, CurrentUserId, ct);
         return NoContentResponse();
     }
 
@@ -86,7 +86,7 @@ public class UsersController : BaseController
     [ProducesResponseType(204)]
     public async Task<IActionResult> DeactivateUser([FromRoute] Guid id, CancellationToken ct)
     {
-        await _userService.DeactivateUserAsync(id, ct);
+        await _userService.DeactivateUserAsync(id, CurrentUserId, ct);
         return NoContentResponse();
     }
 
@@ -95,7 +95,7 @@ public class UsersController : BaseController
     [ProducesResponseType(204)]
     public async Task<IActionResult> ReactivateUser([FromRoute] Guid id, CancellationToken ct)
     {
-        await _userService.ReactivateUserAsync(id, ct);
+        await _userService.ReactivateUserAsync(id, CurrentUserId, ct);
         return NoContentResponse();
     }
 
@@ -119,9 +119,9 @@ public class UsersController : BaseController
     public async Task<IActionResult> UpdateUserStatus([FromRoute] Guid id, [FromBody] UpdateUserStatusRequest request, CancellationToken ct)
     {
         if (request.IsActive)
-            await _userService.ReactivateUserAsync(id, ct);
+            await _userService.ReactivateUserAsync(id, CurrentUserId, ct);
         else
-            await _userService.DeactivateUserAsync(id, ct);
+            await _userService.DeactivateUserAsync(id, CurrentUserId, ct);
 
         return NoContentResponse();
     }

@@ -35,9 +35,15 @@ public class FeedbackResponseService : IFeedbackResponseService
         var user = await GetUserAsync(requestingUserId, ct);
         EnsureCanView(user, feedback, requestingUserId);
 
-        var responses = feedback.Responses
-            .Where(r => !r.IsDeleted)
-            .OrderBy(r => r.CreatedAtUtc);
+        IEnumerable<FeedbackResponse> responses = feedback.Responses
+            .Where(r => !r.IsDeleted);
+
+        if (user.Role == UserRole.Customer)
+        {
+            responses = responses.Where(r => !r.IsInternal);
+        }
+
+        responses = responses.OrderBy(r => r.CreatedAtUtc);
 
         return _mapper.Map<IEnumerable<FeedbackResponseDto>>(responses);
     }

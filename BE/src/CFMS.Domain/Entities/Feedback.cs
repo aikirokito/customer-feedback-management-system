@@ -12,6 +12,8 @@ public class Feedback : SoftDeletableEntity
 
     public string Description { get; set; } = string.Empty;
 
+    public int? Rating { get; set;}
+
     public FeedbackCategory Category { get; set; }
 
     public FeedbackStatus Status { get; set; } = FeedbackStatus.New;

@@ -12,6 +12,7 @@ const normalizeFeedbackPayload = (data) => ({
   title: data.title,
   description: data.description,
   category: data.category || data.categoryId || 'Complaint',
+  rating: data.rating ? Number(data.rating) : null,
 });
 
 const normalizeStatusPayload = (data) => ({

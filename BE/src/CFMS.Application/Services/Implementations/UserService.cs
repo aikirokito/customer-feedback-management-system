@@ -12,11 +12,13 @@ public class UserService : IUserService
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly IMapper _mapper;
+    private readonly IAuditLogService _auditLogService;
 
-    public UserService(IUnitOfWork unitOfWork, IMapper mapper)
+    public UserService(IUnitOfWork unitOfWork, IMapper mapper, IAuditLogService auditLogService)
     {
         _unitOfWork = unitOfWork;
         _mapper = mapper;
+        _auditLogService = auditLogService;
     }
 
     // -------------------------------------------------------------------------
@@ -65,21 +67,54 @@ public class UserService : IUserService
         return _mapper.Map<UserDetailDto>(user);
     }
 
-    public async Task UpdateUserRoleAsync(Guid id, UpdateUserRoleRequest request, CancellationToken ct = default)
+    public async Task UpdateUserRoleAsync(Guid id, UpdateUserRoleRequest request, Guid actorUserId, CancellationToken ct = default)
     {
         var user = await _unitOfWork.Users.GetByIdAsync(id, ct)
             ?? throw new NotFoundException(nameof(Domain.Entities.User), id);
+        if (id == actorUserId && user.Role == UserRole.SystemAdmin && request.Role != UserRole.SystemAdmin)
+        {
+            throw new BusinessRuleException("System Admin cannot demote their own active admin account.");
+        }
+
+        if (user.Role == request.Role)
+        {
+            return;
+        }
+
+        var oldRole = user.Role;
 
         user.Role = request.Role;
 
         _unitOfWork.Users.Update(user);
         await _unitOfWork.SaveChangesAsync(ct);
+
+        await _auditLogService.LogAsync(
+            actorUserId,
+            AuditAction.Update,
+            nameof(Domain.Entities.User),
+            user.Id,
+            $"Role={oldRole}",
+            $"Role={user.Role}",
+            null,
+        ct);
     }
 
-    public async Task DeactivateUserAsync(Guid id, CancellationToken ct = default)
+    public async Task DeactivateUserAsync(Guid id, Guid actorUserId, CancellationToken ct = default)
     {
         var user = await _unitOfWork.Users.GetByIdAsync(id, ct)
             ?? throw new NotFoundException(nameof(Domain.Entities.User), id);
+        
+        if (id == actorUserId && user.Role == UserRole.SystemAdmin)
+        {
+            throw new BusinessRuleException("System Admin cannot diasble their own active admin account.");
+        }
+
+        if (user.Status == UserStatus.Disabled)
+        {
+            return;
+        }
+
+        var oldStatus = user.Status;
 
         user.Status = UserStatus.Disabled;
 
@@ -87,17 +122,43 @@ public class UserService : IUserService
 
         _unitOfWork.Users.Update(user);
         await _unitOfWork.SaveChangesAsync(ct);
+
+        await _auditLogService.LogAsync(
+            actorUserId,
+            AuditAction.Update,
+            nameof(Domain.Entities.User),
+            user.Id,
+            $"Status={oldStatus}",
+            $"Status={user.Status}",
+            null,
+        ct);
     }
 
-    public async Task ReactivateUserAsync(Guid id, CancellationToken ct = default)
+    public async Task ReactivateUserAsync(Guid id, Guid actorUserId, CancellationToken ct = default)
     {
         var user = await _unitOfWork.Users.GetByIdAsync(id, ct)
             ?? throw new NotFoundException(nameof(Domain.Entities.User), id);
+        if (user.Status == UserStatus.Active)
+        {
+            return;
+        }
+
+        var oldStatus = user.Status;
 
         user.Status = UserStatus.Active;
 
         _unitOfWork.Users.Update(user);
         await _unitOfWork.SaveChangesAsync(ct);
+        
+        await _auditLogService.LogAsync(
+            actorUserId,
+            AuditAction.Update,
+            nameof(Domain.Entities.User),
+            user.Id,
+            $"Status={oldStatus}",
+            $"Status={user.Status}",
+            null,
+        ct);
     }
 
     public async Task DeleteUserAsync(Guid id, CancellationToken ct = default)

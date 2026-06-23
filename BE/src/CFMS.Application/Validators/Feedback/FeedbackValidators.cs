@@ -18,6 +18,10 @@ public class CreateFeedbackRequestValidator : AbstractValidator<CreateFeedbackRe
 
         RuleFor(x => x.Category)
             .IsInEnum().WithMessage("Invalid feedback category.");
+        RuleFor(x => x.Rating)
+            .InclusiveBetween(1, 5)
+            .When(x => x.Rating.HasValue)
+            .WithMessage("Rating must be between 1 and 5.");
     }
 }
 

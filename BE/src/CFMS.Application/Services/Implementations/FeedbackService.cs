@@ -66,7 +66,16 @@ public class FeedbackService : IFeedbackService
         var user = await GetCurrentUserAsync(requestingUserId, ct);
         EnsureCanViewFeedback(user, feedback, requestingUserId);
 
-        return _mapper.Map<FeedbackDetailDto>(feedback);
+        var detail = _mapper.Map<FeedbackDetailDto>(feedback);
+
+        if (user.Role == UserRole.Customer)
+        {
+            detail.Responses = detail.Responses
+                .Where(r => !r.IsInternal)
+                .ToList();
+        }
+
+        return detail;
     }
 
     public async Task<FeedbackDetailDto> CreateFeedbackAsync(CreateFeedbackRequest request, Guid submittedByUserId, CancellationToken ct = default)
@@ -82,6 +91,7 @@ public class FeedbackService : IFeedbackService
             Title = request.Title.Trim(),
             Description = request.Description.Trim(),
             Category = request.Category,
+            Rating = request.Rating,
             Status = FeedbackStatus.New,
             Priority = FeedbackPriority.Medium,
             SubmittedByUserId = submittedByUserId

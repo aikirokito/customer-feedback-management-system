@@ -187,6 +187,7 @@ const FeedbackDetailPage = () => {
           <p><strong>Người gửi:</strong> {feedback.submittedByUserName || feedback.customer?.fullName || feedback.customer?.email || '---'}</p>
           <p><strong>Danh mục:</strong> {feedback.category || feedback.category?.name || '---'}</p>
           {isStaff && <p><strong>Mức độ ưu tiên:</strong> {feedback.priority}</p>}
+          <p><strong>Đánh giá:</strong> {feedback.rating ? `${feedback.rating}/5` : 'Không đánh giá'}</p>
           {feedback.assignedToUserName && <p><strong>Người xử lý:</strong> {feedback.assignedToUserName}</p>}
         </div>
 

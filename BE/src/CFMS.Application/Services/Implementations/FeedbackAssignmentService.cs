@@ -39,6 +39,25 @@ public class FeedbackAssignmentService : IFeedbackAssignmentService
             throw new ForbiddenException("Only Department Managers or System Admins can assign feedback.");
         }
 
+        if (feedback.Status is FeedbackStatus.Closed or FeedbackStatus.Rejected or FeedbackStatus.Resolved)
+        {
+            throw new BusinessRuleException("Closed, rejected, or resolved feedback cannot be assigned.");
+        }
+        var isReassignment = feedback.AssignedToUserId.HasValue;
+
+        if (!isReassignment && feedback.Status != FeedbackStatus.New)
+        {
+            throw new BusinessRuleException("Only new feedback can be assigned for the first time.");
+        }
+
+        if (isReassignment && feedback.Status is not (
+            FeedbackStatus.Assigned or
+            FeedbackStatus.InProgress or
+            FeedbackStatus.WaitingForCustomer))
+        {
+            throw new BusinessRuleException("Only active assigned feedback can reassigned.");
+        }
+
         var assignee = await _unitOfWork.Users.GetByIdAsync(request.AssignToUserId, ct)
             ?? throw new NotFoundException(nameof(User), request.AssignToUserId);
 

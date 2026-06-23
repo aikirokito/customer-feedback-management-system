@@ -8,6 +8,7 @@ const SubmitFeedbackPage = () => {
     title: '',
     description: '',
     category: FEEDBACK_CATEGORIES[0].value,
+    rating: '',
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -31,6 +32,7 @@ const SubmitFeedbackPage = () => {
         title: form.title.trim(),
         description: form.description.trim(),
         category: form.category,
+        rating: form.rating,
       });
       navigate('/my-feedbacks', { state: { successMsg: 'Gửi phản hồi thành công!' } });
     } catch (err) {
@@ -76,6 +78,22 @@ const SubmitFeedbackPage = () => {
               {FEEDBACK_CATEGORIES.map(c => (
                 <option key={c.value} value={c.value}>{c.name}</option>
               ))}
+            </select>
+          </div>
+          <div className="form-group">
+            <label className="form-label" htmlFor="feedback-rating">Đánh giá</label>
+            <select
+              id="feedback-rating"
+              name="rating"
+              className="form-control"
+              onChange={handleChange}
+            >
+              <option value="">Không đánh giá</option>
+              <option value="1">1 - Rất không hài lòng</option>
+              <option value="2">2 - Không hài lòng</option>
+              <option value="3">3 - Bình thường</option>
+              <option value="4">4 - Hài lòng</option>
+              <option value="5">5 - Rất hài lòng</option>
             </select>
           </div>
 
