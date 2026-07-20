@@ -13,6 +13,8 @@ public class UserListItemDto
     public UserRole Role { get; set; }
     public string RoleName => Role.ToString();
     public bool IsActive { get; set; }
+    public Guid? DepartmentId { get; set; }
+    public string? DepartmentName { get; set; }
     public DateTime CreatedAtUtc { get; set; }
 }
 
@@ -33,6 +35,7 @@ public class UpdateUserRequest
 public class UpdateUserRoleRequest
 {
     public UserRole Role { get; set; }
+    public Guid? DepartmentId { get; set; }
 }
 
 public class UpdateUserStatusRequest

@@ -8,19 +8,30 @@ public class FeedbackConfiguration : IEntityTypeConfiguration<Feedback>
 {
     public void Configure(EntityTypeBuilder<Feedback> builder)
     {
-        builder.ToTable("feedbacks");
+        builder.ToTable("feedbacks", table =>
+        {
+            table.HasCheckConstraint(
+                "CK_feedbacks_Rating_Range",
+                "\"Rating\" IS NULL OR \"Rating\" BETWEEN 1 AND 5");
+            table.HasCheckConstraint(
+                "CK_feedbacks_Status_Valid",
+                "\"Status\" IN ('New', 'Assigned', 'InProgress', 'WaitingForCustomer', 'Resolved', 'Rejected', 'Closed')");
+            table.HasCheckConstraint(
+                "CK_feedbacks_Priority_Valid",
+                "\"Priority\" IN ('Low', 'Medium', 'High', 'Urgent')");
+        });
 
         builder.HasKey(f => f.Id);
 
         builder.Property(f => f.Title).IsRequired().HasMaxLength(200);
         builder.Property(f => f.Description).IsRequired().HasMaxLength(5000);
 
-        builder.Property(f => f.Category).HasConversion<string>().HasMaxLength(30);
         builder.Property(f => f.Status).HasConversion<string>().HasMaxLength(30);
         builder.Property(f => f.Priority).HasConversion<string>().HasMaxLength(20);
 
         builder.HasIndex(f => f.Status);
-        builder.HasIndex(f => f.Category);
+        builder.HasIndex(f => f.CategoryId);
+        builder.HasIndex(f => f.DepartmentId);
         builder.HasIndex(f => f.Priority);
         builder.HasIndex(f => f.SubmittedByUserId);
         builder.HasIndex(f => f.AssignedToUserId);
@@ -29,6 +40,17 @@ public class FeedbackConfiguration : IEntityTypeConfiguration<Feedback>
         builder.HasOne(f => f.AssignedToUser)
             .WithMany()
             .HasForeignKey(f => f.AssignedToUserId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        builder.HasOne(f => f.Category)
+            .WithMany(c => c.Feedbacks)
+            .HasForeignKey(f => f.CategoryId)
+            .IsRequired()
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(f => f.Department)
+            .WithMany(d => d.Feedbacks)
+            .HasForeignKey(f => f.DepartmentId)
             .OnDelete(DeleteBehavior.SetNull);
 
         builder.HasMany(f => f.Attachments)

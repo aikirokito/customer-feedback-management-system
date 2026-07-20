@@ -46,7 +46,7 @@ public class ResponsesController : BaseController
     [ProducesResponseType(403)]
     public async Task<IActionResult> UpdateResponse([FromRoute] Guid feedbackId, [FromRoute] Guid responseId, [FromBody] UpdateResponseRequest request, CancellationToken ct)
     {
-        var result = await _responseService.UpdateResponseAsync(responseId, request, CurrentUserId, ct);
+        var result = await _responseService.UpdateResponseAsync(feedbackId, responseId, request, CurrentUserId, ct);
         return OkResponse(result, "Response updated.");
     }
 
@@ -55,7 +55,7 @@ public class ResponsesController : BaseController
     [ProducesResponseType(204)]
     public async Task<IActionResult> DeleteResponse([FromRoute] Guid feedbackId, [FromRoute] Guid responseId, CancellationToken ct)
     {
-        await _responseService.DeleteResponseAsync(responseId, CurrentUserId, ct);
+        await _responseService.DeleteResponseAsync(feedbackId, responseId, CurrentUserId, ct);
         return NoContentResponse();
     }
 }

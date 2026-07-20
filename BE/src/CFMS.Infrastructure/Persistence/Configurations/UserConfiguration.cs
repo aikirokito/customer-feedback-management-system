@@ -8,7 +8,15 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
 {
     public void Configure(EntityTypeBuilder<User> builder)
     {
-        builder.ToTable("users");
+        builder.ToTable("users", table =>
+        {
+            table.HasCheckConstraint(
+                "CK_users_Role_Valid",
+                "\"Role\" IN ('Customer', 'SupportStaff', 'DepartmentManager', 'SystemAdmin')");
+            table.HasCheckConstraint(
+                "CK_users_Status_Valid",
+                "\"Status\" IN ('Active', 'Disabled')");
+        });
 
         builder.HasKey(u => u.Id);
 
@@ -38,7 +46,8 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(u => u.Status)
             .HasConversion<string>()
             .HasMaxLength(20)
-            .HasDefaultValue(Domain.Enums.UserStatus.Active);
+            .HasDefaultValue(Domain.Enums.UserStatus.Active)
+            .HasSentinel((Domain.Enums.UserStatus)0);
 
         // IsActive is a computed property — not mapped to a column
         builder.Ignore(u => u.IsActive);
@@ -60,5 +69,10 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
             .WithOne(n => n.User)
             .HasForeignKey(n => n.UserId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasOne(u => u.Department)
+            .WithMany(d => d.Users)
+            .HasForeignKey(u => u.DepartmentId)
+            .OnDelete(DeleteBehavior.SetNull);
     }
 }

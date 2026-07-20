@@ -9,6 +9,10 @@ public class FeedbackMappingProfile : Profile
     public FeedbackMappingProfile()
     {
         CreateMap<Feedback, FeedbackListItemDto>()
+            .ForMember(dest => dest.Category,
+                opt => opt.MapFrom(src => src.Category != null ? src.Category.Name : "Uncategorized"))
+            .ForMember(dest => dest.DepartmentName,
+                opt => opt.MapFrom(src => src.Department != null ? src.Department.Name : null))
             .ForMember(dest => dest.SubmittedByUserName,
                 opt => opt.MapFrom(src => $"{src.SubmittedByUser.FirstName} {src.SubmittedByUser.LastName}"))
             .ForMember(dest => dest.AssignedToUserName,

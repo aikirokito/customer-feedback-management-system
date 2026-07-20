@@ -1,8 +1,10 @@
 using CFMS.Api.Hubs;
 using CFMS.Api.Middleware;
+using CFMS.Application.Common.Interfaces;
 using CFMS.Application.Extensions;
 using CFMS.Domain.Constants;
 using CFMS.Infrastructure.Extensions;
+using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -36,6 +38,7 @@ builder.Services.AddControllers()
         opts.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
         opts.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
     });
+builder.Services.AddFluentValidationAutoValidation();
 
 // ============================================================
 // Application + Infrastructure layers
@@ -80,6 +83,22 @@ builder.Services.AddAuthentication(options =>
                 context.Token = accessToken;
             }
             return Task.CompletedTask;
+        },
+        OnTokenValidated = async context =>
+        {
+            var userIdValue = context.Principal?.FindFirst(AppClaimTypes.UserId)?.Value;
+            if (!Guid.TryParse(userIdValue, out var userId))
+            {
+                context.Fail("The access token does not contain a valid user identifier.");
+                return;
+            }
+
+            var unitOfWork = context.HttpContext.RequestServices.GetRequiredService<IUnitOfWork>();
+            var user = await unitOfWork.Users.GetByIdAsync(userId, context.HttpContext.RequestAborted);
+            if (user == null || !user.IsActive)
+            {
+                context.Fail("The user account is disabled or no longer exists.");
+            }
         }
     };
 });

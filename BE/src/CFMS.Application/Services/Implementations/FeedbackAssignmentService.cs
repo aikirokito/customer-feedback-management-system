@@ -39,6 +39,19 @@ public class FeedbackAssignmentService : IFeedbackAssignmentService
             throw new ForbiddenException("Only Department Managers or System Admins can assign feedback.");
         }
 
+        if (assigner.Role == UserRole.DepartmentManager)
+        {
+            if (!assigner.DepartmentId.HasValue)
+            {
+                throw new ForbiddenException("Department Manager must belong to a department.");
+            }
+
+            if (feedback.DepartmentId.HasValue && feedback.DepartmentId != assigner.DepartmentId)
+            {
+                throw new ForbiddenException("Department Managers can only assign feedback in their department.");
+            }
+        }
+
         if (feedback.Status is FeedbackStatus.Closed or FeedbackStatus.Rejected or FeedbackStatus.Resolved)
         {
             throw new BusinessRuleException("Closed, rejected, or resolved feedback cannot be assigned.");
@@ -71,6 +84,21 @@ public class FeedbackAssignmentService : IFeedbackAssignmentService
             throw new BusinessRuleException("Feedback cannot be assigned to a disabled staff account.");
         }
 
+        if (!assignee.DepartmentId.HasValue)
+        {
+            throw new BusinessRuleException("Support Staff must belong to a department before feedback can be assigned.");
+        }
+
+        if (assigner.Role == UserRole.DepartmentManager && assignee.DepartmentId != assigner.DepartmentId)
+        {
+            throw new ForbiddenException("Department Managers can only assign feedback to staff in their department.");
+        }
+
+        if (feedback.DepartmentId.HasValue && feedback.DepartmentId != assignee.DepartmentId)
+        {
+            throw new BusinessRuleException("Feedback can only be assigned to staff in the same department.");
+        }
+
         foreach (var activeAssignment in feedback.AssignmentHistory.Where(a => a.IsActive))
         {
             activeAssignment.IsActive = false;
@@ -89,6 +117,7 @@ public class FeedbackAssignmentService : IFeedbackAssignmentService
 
         feedback.AssignmentHistory.Add(assignment);
         feedback.AssignedToUserId = assignee.Id;
+        feedback.DepartmentId ??= assignee.DepartmentId;
         feedback.UpdatedAtUtc = DateTime.UtcNow;
 
         if (feedback.Status == FeedbackStatus.New)
@@ -113,10 +142,14 @@ public class FeedbackAssignmentService : IFeedbackAssignmentService
         return _mapper.Map<AssignmentDto>(assignment);
     }
 
-    public async Task<IEnumerable<AssignmentDto>> GetAssignmentHistoryAsync(Guid feedbackId, CancellationToken ct = default)
+    public async Task<IEnumerable<AssignmentDto>> GetAssignmentHistoryAsync(Guid feedbackId, Guid requestingUserId, CancellationToken ct = default)
     {
         var feedback = await _unitOfWork.Feedbacks.GetByIdWithDetailsAsync(feedbackId, ct)
             ?? throw new NotFoundException(nameof(Feedback), feedbackId);
+        var user = await _unitOfWork.Users.GetByIdAsync(requestingUserId, ct)
+            ?? throw new UnauthorizedException("User was not found.");
+
+        EnsureCanManageAssignment(user, feedback, requestingUserId);
 
         return _mapper.Map<IEnumerable<AssignmentDto>>(feedback.AssignmentHistory.OrderByDescending(a => a.CreatedAtUtc));
     }
@@ -133,21 +166,78 @@ public class FeedbackAssignmentService : IFeedbackAssignmentService
             throw new ForbiddenException("Only Department Managers or System Admins can unassign feedback.");
         }
 
+        if (user.Role == UserRole.DepartmentManager &&
+            (!user.DepartmentId.HasValue || feedback.DepartmentId != user.DepartmentId))
+        {
+            throw new ForbiddenException("Department Managers can only unassign feedback in their department.");
+        }
+
         var previousAssigneeId = feedback.AssignedToUserId;
+        if (!previousAssigneeId.HasValue)
+        {
+            throw new BusinessRuleException("Feedback is not currently assigned.");
+        }
+
+        if (feedback.Status is FeedbackStatus.Closed or FeedbackStatus.Rejected or FeedbackStatus.Resolved)
+        {
+            throw new BusinessRuleException("Closed, rejected, or resolved feedback cannot be unassigned.");
+        }
+
+        var previousStatus = feedback.Status;
         foreach (var activeAssignment in feedback.AssignmentHistory.Where(a => a.IsActive))
         {
             activeAssignment.IsActive = false;
         }
 
         feedback.AssignedToUserId = null;
+        feedback.Status = FeedbackStatus.New;
+        feedback.ResolvedAtUtc = null;
+        feedback.ClosedAtUtc = null;
         feedback.UpdatedAtUtc = DateTime.UtcNow;
+
+        if (previousStatus != FeedbackStatus.New)
+        {
+            feedback.StatusHistory.Add(new FeedbackStatusHistory
+            {
+                FeedbackId = feedback.Id,
+                FromStatus = previousStatus,
+                ToStatus = FeedbackStatus.New,
+                ChangedByUserId = requestingUserId,
+                Reason = "Feedback unassigned and returned to the triage queue."
+            });
+        }
+
         await _unitOfWork.SaveChangesAsync(ct);
 
-        await _auditLogService.LogAsync(requestingUserId, AuditAction.Assignment, nameof(Feedback), feedback.Id, null, "Feedback unassigned", null, ct);
+        await _auditLogService.LogAsync(
+            requestingUserId,
+            AuditAction.Assignment,
+            nameof(Feedback),
+            feedback.Id,
+            $"AssignedToUserId={previousAssigneeId};Status={previousStatus}",
+            "AssignedToUserId=null;Status=New",
+            null,
+            ct);
 
-        if (previousAssigneeId.HasValue)
+        await SafeNotifyAsync(previousAssigneeId.Value, NotificationType.FeedbackAssigned, "Feedback unassigned", $"You have been unassigned from feedback '{feedback.Title}'.", feedback.Id, nameof(Feedback), ct);
+    }
+
+    private static void EnsureCanManageAssignment(User user, Feedback feedback, Guid userId)
+    {
+        if (user.Role == UserRole.Customer)
         {
-            await SafeNotifyAsync(previousAssigneeId.Value, NotificationType.FeedbackAssigned, "Feedback unassigned", $"You have been unassigned from feedback '{feedback.Title}'.", feedback.Id, nameof(Feedback), ct);
+            throw new ForbiddenException("Customers cannot view internal assignment history.");
+        }
+
+        if (user.Role == UserRole.SupportStaff && feedback.AssignedToUserId != userId)
+        {
+            throw new ForbiddenException("Support Staff can only view assignment history for assigned feedback.");
+        }
+
+        if (user.Role == UserRole.DepartmentManager &&
+            (!user.DepartmentId.HasValue || feedback.DepartmentId != user.DepartmentId))
+        {
+            throw new ForbiddenException("Department Managers can only view assignment history in their department.");
         }
     }
 

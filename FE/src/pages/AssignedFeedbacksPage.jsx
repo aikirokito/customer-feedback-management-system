@@ -34,7 +34,13 @@ const AssignedFeedbacksPage = () => {
   // Filters (Manager/Admin only)
   const [statusFilter, setStatusFilter] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [categories, setCategories] = useState([]);
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({ totalPages: 1, totalCount: 0 });
 
   // Assignment state
   const [assigningId, setAssigningId] = useState(null);
@@ -44,22 +50,32 @@ const AssignedFeedbacksPage = () => {
   const fetchFeedbacks = useCallback(async () => {
     setLoading(true);
     try {
-      const params = {};
+      const params = { page, pageSize: 20 };
       if (statusFilter) params.status = statusFilter;
       if (priorityFilter) params.priority = priorityFilter;
+      if (categoryFilter) params.categoryId = categoryFilter;
+      if (fromDate) params.fromDate = fromDate;
+      if (toDate) params.toDate = toDate;
       if (searchTerm) params.searchTerm = searchTerm;
       const res = await feedbackApi.getAssignedFeedbacks(params);
       setFeedbacks(res.data || []);
+      setPagination(res.pagination || { totalPages: 1, totalCount: res.data?.length || 0 });
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, priorityFilter, searchTerm]);
+  }, [categoryFilter, fromDate, page, priorityFilter, searchTerm, statusFilter, toDate]);
 
   useEffect(() => {
     fetchFeedbacks();
   }, [fetchFeedbacks]);
+
+  useEffect(() => {
+    feedbackApi.getCategories()
+      .then(res => setCategories(res.data || []))
+      .catch(err => console.error('Failed to load categories:', err));
+  }, []);
 
   useEffect(() => {
     if (isManager) {
@@ -110,8 +126,8 @@ const AssignedFeedbacksPage = () => {
         </div>
       )}
 
-      {/* Filters — Manager/Admin only */}
-      {isManager && (
+      {/* Feedback filters */}
+      {(
         <div className="card mb-4">
           <div className="card-header">
             <h3 className="card-title">Bộ lọc</h3>
@@ -123,7 +139,7 @@ const AssignedFeedbacksPage = () => {
                 id="filter-status"
                 className="form-control"
                 value={statusFilter}
-                onChange={e => setStatusFilter(e.target.value)}
+                onChange={e => { setStatusFilter(e.target.value); setPage(1); }}
               >
                 <option value="">Tất cả</option>
                 <option value="New">New</option>
@@ -141,7 +157,7 @@ const AssignedFeedbacksPage = () => {
                 id="filter-priority"
                 className="form-control"
                 value={priorityFilter}
-                onChange={e => setPriorityFilter(e.target.value)}
+                onChange={e => { setPriorityFilter(e.target.value); setPage(1); }}
               >
                 <option value="">Tất cả</option>
                 <option value="Low">Low</option>
@@ -158,8 +174,29 @@ const AssignedFeedbacksPage = () => {
                 className="form-control"
                 placeholder="Nhập từ khóa..."
                 value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
+                onChange={e => { setSearchTerm(e.target.value); setPage(1); }}
               />
+            </div>
+            <div className="form-group" style={{ flex: 1, minWidth: 180, marginBottom: 0 }}>
+              <label className="form-label">Danh mục</label>
+              <select
+                className="form-control"
+                value={categoryFilter}
+                onChange={e => { setCategoryFilter(e.target.value); setPage(1); }}
+              >
+                <option value="">Tất cả</option>
+                {categories.map(category => (
+                  <option key={category.id} value={category.id}>{category.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="form-group" style={{ flex: 1, minWidth: 160, marginBottom: 0 }}>
+              <label className="form-label">Từ ngày</label>
+              <input className="form-control" type="date" value={fromDate} onChange={e => { setFromDate(e.target.value); setPage(1); }} />
+            </div>
+            <div className="form-group" style={{ flex: 1, minWidth: 160, marginBottom: 0 }}>
+              <label className="form-label">Đến ngày</label>
+              <input className="form-control" type="date" value={toDate} onChange={e => { setToDate(e.target.value); setPage(1); }} />
             </div>
           </div>
         </div>
@@ -266,6 +303,13 @@ const AssignedFeedbacksPage = () => {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+        {!loading && (
+          <div className="flex-between" style={{ marginTop: '1rem' }}>
+            <button className="btn btn-secondary" disabled={page <= 1} onClick={() => setPage(value => value - 1)}>Trang trước</button>
+            <span>{pagination.totalCount} phản hồi · Trang {page}/{pagination.totalPages || 1}</span>
+            <button className="btn btn-secondary" disabled={page >= (pagination.totalPages || 1)} onClick={() => setPage(value => value + 1)}>Trang sau</button>
           </div>
         )}
       </div>

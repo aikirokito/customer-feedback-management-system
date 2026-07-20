@@ -8,7 +8,12 @@ public class FeedbackStatusHistoryConfiguration : IEntityTypeConfiguration<Feedb
 {
     public void Configure(EntityTypeBuilder<FeedbackStatusHistory> builder)
     {
-        builder.ToTable("feedback_status_history");
+        builder.ToTable("feedback_status_history", table =>
+        {
+            const string validStatuses = "('New', 'Assigned', 'InProgress', 'WaitingForCustomer', 'Resolved', 'Rejected', 'Closed')";
+            table.HasCheckConstraint("CK_feedback_status_history_FromStatus_Valid", $"\"FromStatus\" IN {validStatuses}");
+            table.HasCheckConstraint("CK_feedback_status_history_ToStatus_Valid", $"\"ToStatus\" IN {validStatuses}");
+        });
         builder.HasKey(sh => sh.Id);
         builder.Property(sh => sh.FromStatus).HasConversion<string>().HasMaxLength(30);
         builder.Property(sh => sh.ToStatus).HasConversion<string>().HasMaxLength(30);

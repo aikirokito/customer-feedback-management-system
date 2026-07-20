@@ -12,6 +12,10 @@ import AssignedFeedbacksPage from '../pages/AssignedFeedbacksPage';
 import ManageUsersPage from '../pages/ManageUsersPage';
 import ReportsPage from '../pages/ReportsPage';
 import AuditLogsPage from '../pages/AuditLogsPage';
+import ManageCategoriesPage from '../pages/ManageCategoriesPage';
+import ManageDepartmentsPage from '../pages/ManageDepartmentsPage';
+import NotificationsPage from '../pages/NotificationsPage';
+import ProfilePage from '../pages/ProfilePage';
 import UnauthorizedPage from '../pages/UnauthorizedPage';
 import NotFoundPage from '../pages/NotFoundPage';
 import MainLayout from '../layouts/MainLayout';
@@ -35,6 +39,8 @@ const AppRoutes = () => {
       >
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<DashboardPage />} />
+        <Route path="profile" element={<ProfilePage />} />
+        <Route path="notifications" element={<NotificationsPage />} />
 
         {/* Customer */}
         <Route path="submit-feedback" element={
@@ -66,6 +72,16 @@ const AppRoutes = () => {
         <Route path="manage-users" element={
           <RoleBasedRoute allowedRoles={['SystemAdmin']}>
             <ManageUsersPage />
+          </RoleBasedRoute>
+        } />
+        <Route path="manage-categories" element={
+          <RoleBasedRoute allowedRoles={['SystemAdmin']}>
+            <ManageCategoriesPage />
+          </RoleBasedRoute>
+        } />
+        <Route path="manage-departments" element={
+          <RoleBasedRoute allowedRoles={['SystemAdmin']}>
+            <ManageDepartmentsPage />
           </RoleBasedRoute>
         } />
         <Route path="reports" element={

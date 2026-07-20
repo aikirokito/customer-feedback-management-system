@@ -161,13 +161,16 @@ public class AuthService : IAuthService
     // Logout
     // -------------------------------------------------------------------------
 
-    public async Task LogoutAsync(string refreshToken, CancellationToken ct = default)
+    public async Task LogoutAsync(string refreshToken, Guid requestingUserId, CancellationToken ct = default)
     {
         var storedToken = await _unitOfWork.RefreshTokens.GetByTokenAsync(refreshToken, ct);
 
         // Silently succeed if token is already gone/revoked — prevents information leakage
         if (storedToken == null || storedToken.IsRevoked)
             return;
+
+        if (storedToken.UserId != requestingUserId)
+            throw new ForbiddenException("The refresh token does not belong to the authenticated user.");
 
         storedToken.IsRevoked = true;
         storedToken.RevokedAtUtc = DateTime.UtcNow;

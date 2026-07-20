@@ -21,9 +21,11 @@ public class AuditLogService : IAuditLogService
 
     public async Task<PagedResult<AuditLogDto>> GetAuditLogsAsync(AuditLogFilterRequest filter, CancellationToken ct = default)
     {
+        var page = Math.Max(filter.Page, 1);
+        var pageSize = Math.Clamp(filter.PageSize, 1, 100);
         var (items, totalCount) = await _unitOfWork.AuditLogs.GetPagedAsync(
-            filter.Page,
-            filter.PageSize,
+            page,
+            pageSize,
             filter.UserId,
             filter.EntityType,
             filter.EntityId,
@@ -33,7 +35,7 @@ public class AuditLogService : IAuditLogService
             ct);
 
         var dtos = _mapper.Map<IEnumerable<AuditLogDto>>(items);
-        return PagedResult<AuditLogDto>.Create(dtos, filter.Page, filter.PageSize, totalCount);
+        return PagedResult<AuditLogDto>.Create(dtos, page, pageSize, totalCount);
     }
 
     public async Task LogAsync(

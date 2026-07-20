@@ -14,7 +14,7 @@ public static class ApplicationServiceExtensions
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
         // AutoMapper — scan this assembly for all profiles
-        services.AddAutoMapper(typeof(UserMappingProfile).Assembly);
+        services.AddAutoMapper(_ => { }, typeof(UserMappingProfile).Assembly);
 
         // FluentValidation — scan this assembly for all AbstractValidator<T>
         services.AddValidatorsFromAssembly(typeof(ApplicationServiceExtensions).Assembly);
@@ -30,6 +30,8 @@ public static class ApplicationServiceExtensions
         services.AddScoped<IFeedbackResponseService, FeedbackResponseService>();
         services.AddScoped<IFeedbackCommentService, FeedbackCommentService>();
         services.AddScoped<IReportService, ReportService>();
+        services.AddScoped<IFeedbackCategoryService, FeedbackCategoryService>();
+        services.AddScoped<IDepartmentService, DepartmentService>();
 
         return services;
     }

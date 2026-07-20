@@ -11,11 +11,13 @@ public class FeedbackAssignmentConfiguration : IEntityTypeConfiguration<Feedback
         builder.ToTable("feedback_assignments");
         builder.HasKey(a => a.Id);
         builder.Property(a => a.Note).HasMaxLength(1000);
-        builder.HasIndex(a => a.FeedbackId);
+        builder.HasIndex(a => a.FeedbackId)
+            .IsUnique()
+            .HasFilter("\"IsActive\" = TRUE");
         builder.HasIndex(a => a.AssignedToUserId);
 
         builder.HasOne(a => a.AssignedToUser)
-            .WithMany()
+            .WithMany(u => u.Assignments)
             .HasForeignKey(a => a.AssignedToUserId)
             .OnDelete(DeleteBehavior.Restrict);
 

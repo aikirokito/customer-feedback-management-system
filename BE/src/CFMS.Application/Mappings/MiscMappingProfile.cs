@@ -4,6 +4,8 @@ using CFMS.Application.DTOs.Comments;
 using CFMS.Application.DTOs.Notifications;
 using CFMS.Application.DTOs.AuditLogs;
 using CFMS.Domain.Entities;
+using CFMS.Application.DTOs.Categories;
+using CFMS.Application.DTOs.Departments;
 
 namespace CFMS.Application.Mappings;
 
@@ -33,5 +35,11 @@ public class MiscMappingProfile : Profile
                 opt => opt.MapFrom(src => src.User != null
                     ? $"{src.User.FirstName} {src.User.LastName}"
                     : null));
+
+        CreateMap<FeedbackCategoryEntity, CategoryDto>()
+            .ForMember(dest => dest.DepartmentName,
+                opt => opt.MapFrom(src => src.Department != null ? src.Department.Name : null));
+
+        CreateMap<Department, DepartmentDto>();
     }
 }

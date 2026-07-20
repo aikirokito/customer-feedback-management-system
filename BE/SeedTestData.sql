@@ -12,9 +12,21 @@
 -- Verified BCrypt Hash (workFactor: 12): $2a$12$8E6RWISTi5Rgm3Ys/pK.Wu0bvRmOcQyJ4x7WfE0cGPoqFIpYrCl/m
 -- ==================================================================================
 
+INSERT INTO departments (
+    "Id", "Name", "Description", "IsActive", "CreatedAtUtc", "UpdatedAtUtc"
+) VALUES (
+    '11111111-1111-1111-1111-111111111111',
+    'Customer Support',
+    'Default department for feedback handling.',
+    true,
+    NOW() AT TIME ZONE 'UTC',
+    NOW() AT TIME ZONE 'UTC'
+)
+ON CONFLICT ("Name") DO NOTHING;
+
 INSERT INTO users (
-    "Id", "Email", "PasswordHash", "FirstName", "LastName", "PhoneNumber", "AvatarUrl", 
-    "Role", "Status", "IsEmailVerified", "GoogleSubject", "LastLoginAtUtc", 
+    "Id", "Email", "PasswordHash", "FirstName", "LastName", "PhoneNumber", "AvatarUrl",
+    "Role", "DepartmentId", "Status", "IsEmailVerified", "GoogleSubject", "LastLoginAtUtc",
     "CreatedAtUtc", "UpdatedAtUtc", "IsDeleted"
 ) VALUES 
 -- Customer Account
@@ -27,6 +39,7 @@ INSERT INTO users (
     '0901234567', 
     NULL, 
     'Customer', 
+    NULL,
     'Active', 
     true, 
     NULL, 
@@ -45,6 +58,7 @@ INSERT INTO users (
     '0902345678', 
     NULL, 
     'SupportStaff', 
+    '11111111-1111-1111-1111-111111111111',
     'Active', 
     true, 
     NULL, 
@@ -63,6 +77,7 @@ INSERT INTO users (
     '0903456789', 
     NULL, 
     'DepartmentManager', 
+    '11111111-1111-1111-1111-111111111111',
     'Active', 
     true, 
     NULL, 
@@ -81,6 +96,7 @@ INSERT INTO users (
     '0904567890', 
     NULL, 
     'SystemAdmin', 
+    NULL,
     'Active', 
     true, 
     NULL, 
@@ -94,4 +110,5 @@ ON CONFLICT ("Email") DO UPDATE SET
     "FirstName" = EXCLUDED."FirstName",
     "LastName" = EXCLUDED."LastName",
     "Role" = EXCLUDED."Role",
+    "DepartmentId" = EXCLUDED."DepartmentId",
     "Status" = EXCLUDED."Status";

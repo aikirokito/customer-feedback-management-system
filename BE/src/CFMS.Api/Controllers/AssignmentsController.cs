@@ -20,8 +20,7 @@ public class AssignmentsController : BaseController
         _assignmentService = assignmentService;
     }
 
-    [HttpPatch]
-    [Route("~/api/feedback/{feedbackId:guid}/assign")]
+    [HttpPatch("~/api/feedback/{feedbackId:guid}/assign")]
     [Authorize(Roles = $"{RoleNames.DepartmentManager},{RoleNames.SystemAdmin}")]
     [ProducesResponseType(200)]
     [ProducesResponseType(400)]
@@ -32,8 +31,7 @@ public class AssignmentsController : BaseController
         return OkResponse(result, "Feedback assigned.");
     }
 
-    [HttpPatch]
-    [Route("~/api/feedback/{feedbackId:guid}/reassign")]
+    [HttpPatch("~/api/feedback/{feedbackId:guid}/reassign")]
     [Authorize(Roles = $"{RoleNames.DepartmentManager},{RoleNames.SystemAdmin}")]
     [ProducesResponseType(200)]
     public async Task<IActionResult> ReassignFeedback([FromRoute] Guid feedbackId, [FromBody] AssignFeedbackRequest request, CancellationToken ct)
@@ -43,18 +41,16 @@ public class AssignmentsController : BaseController
         return OkResponse(result, "Feedback reassigned.");
     }
 
-    [HttpGet]
-    [Route("~/api/feedback/{feedbackId:guid}/assignments")]
+    [HttpGet("~/api/feedback/{feedbackId:guid}/assignments")]
     [Authorize(Roles = $"{RoleNames.SupportStaff},{RoleNames.DepartmentManager},{RoleNames.SystemAdmin}")]
     [ProducesResponseType(200)]
     public async Task<IActionResult> GetAssignmentHistory([FromRoute] Guid feedbackId, CancellationToken ct)
     {
-        var result = await _assignmentService.GetAssignmentHistoryAsync(feedbackId, ct);
+        var result = await _assignmentService.GetAssignmentHistoryAsync(feedbackId, CurrentUserId, ct);
         return OkResponse(result);
     }
 
-    [HttpDelete]
-    [Route("~/api/feedback/{feedbackId:guid}/assignments")]
+    [HttpDelete("~/api/feedback/{feedbackId:guid}/assignments")]
     [Authorize(Roles = $"{RoleNames.DepartmentManager},{RoleNames.SystemAdmin}")]
     [ProducesResponseType(204)]
     public async Task<IActionResult> UnassignFeedback([FromRoute] Guid feedbackId, CancellationToken ct)

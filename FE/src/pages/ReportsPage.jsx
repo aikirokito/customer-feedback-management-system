@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback } from "react";
 import userApi from "../api/userApi";
+import feedbackApi from "../api/feedbackApi";
 
 const ReportsPage = () => {
   const [summaryData, setSummaryData] = useState(null);
   const [staffData, setStaffData] = useState([]);
+  const [trendData, setTrendData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filtering, setFiltering] = useState(false);
   const [error, setError] = useState("");
@@ -12,17 +14,23 @@ const ReportsPage = () => {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
+  const [appliedFilters, setAppliedFilters] = useState({
+    fromDate: "",
+    toDate: "",
+    categoryId: "",
+  });
+  const [categories, setCategories] = useState([]);
 
   const fetchReportData = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
       const params = {};
-      if (fromDate) params.fromDate = new Date(fromDate).toISOString();
-      if (toDate) params.toDate = new Date(toDate).toISOString();
-      if (categoryFilter) params.category = categoryFilter;
+      if (appliedFilters.fromDate) params.fromDate = new Date(appliedFilters.fromDate).toISOString();
+      if (appliedFilters.toDate) params.toDate = new Date(appliedFilters.toDate).toISOString();
+      if (appliedFilters.categoryId) params.categoryId = appliedFilters.categoryId;
 
-      const [summaryRes, staffRes] = await Promise.all([
+      const [summaryRes, staffRes, trendRes] = await Promise.all([
         userApi.getReports(params).catch((err) => {
           console.error(err);
           throw new Error("Không thể tải báo cáo tổng quan.");
@@ -31,26 +39,38 @@ const ReportsPage = () => {
           console.error(err);
           return { data: [] }; // fallback if workload fails
         }),
+        userApi.getFeedbackByMonth(params).catch(() => ({ data: [] })),
       ]);
 
       setSummaryData(summaryRes.data);
       setStaffData(staffRes.data || []);
+      setTrendData(trendRes.data || []);
     } catch (err) {
       setError(err.message || "Lỗi khi tải dữ liệu báo cáo.");
     } finally {
       setLoading(false);
       setFiltering(false);
     }
-  }, [fromDate, toDate, categoryFilter]);
+  }, [appliedFilters]);
+
+  useEffect(() => {
+    feedbackApi.getCategories()
+      .then((response) => setCategories(response.data || []))
+      .catch(() => setCategories([]));
+  }, []);
 
   useEffect(() => {
     fetchReportData();
-  }, []); // run once on mount
+  }, [fetchReportData]);
 
   const handleApplyFilters = (e) => {
     e.preventDefault();
     setFiltering(true);
-    fetchReportData();
+    setAppliedFilters({
+      fromDate,
+      toDate,
+      categoryId: categoryFilter,
+    });
   };
 
   const handleResetFilters = () => {
@@ -58,8 +78,7 @@ const ReportsPage = () => {
     setToDate("");
     setCategoryFilter("");
     setFiltering(true);
-    // Fetch with cleared values in next render cycle
-    setTimeout(() => fetchReportData(), 0);
+    setAppliedFilters({ fromDate: "", toDate: "", categoryId: "" });
   };
 
   const calculatePercentage = (count, total) => {
@@ -141,11 +160,9 @@ const ReportsPage = () => {
                 onChange={(e) => setCategoryFilter(e.target.value)}
               >
                 <option value="">Tất cả danh mục</option>
-                <option value="Complaint">Complaint</option>
-                <option value="Suggestion">Suggestion</option>
-                <option value="Service">Service</option>
-                <option value="Product">Product</option>
-                <option value="Website">Website</option>
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>{category.name}</option>
+                ))}
               </select>
             </div>
             <div
@@ -447,6 +464,19 @@ const ReportsPage = () => {
           </div>
         </>
       )}
+
+      {/* Staff Performance & Workload */}
+      <div className="card mb-4">
+        <div className="card-header">
+          <h2 className="card-title">Xu hướng phản hồi theo tháng</h2>
+          <span className="text-muted" style={{ fontSize: '0.8rem' }}>Tổng số, đã giải quyết và đã đóng</span>
+        </div>
+        {trendData.length === 0 ? <div className="empty-state"><p>Không có dữ liệu xu hướng trong khoảng đã chọn.</p></div> : (
+          <div className="table-wrap"><table><thead><tr><th>Tháng</th><th>Tổng phản hồi</th><th>Đã giải quyết</th><th>Đã đóng</th></tr></thead><tbody>
+            {trendData.map((point) => <tr key={point.period}><td className="font-semibold">{point.period}</td><td>{point.totalCount}</td><td>{point.resolvedCount}</td><td>{point.closedCount}</td></tr>)}
+          </tbody></table></div>
+        )}
+      </div>
 
       {/* Staff Performance & Workload */}
       <div className="card">

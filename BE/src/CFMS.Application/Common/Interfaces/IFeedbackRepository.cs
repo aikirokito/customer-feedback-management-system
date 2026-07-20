@@ -12,11 +12,14 @@ public interface IFeedbackRepository : IRepository<Feedback>
         int page,
         int pageSize,
         FeedbackStatus? status = null,
-        FeedbackCategory? category = null,
+        Guid? categoryId = null,
         FeedbackPriority? priority = null,
         Guid? submittedByUserId = null,
         Guid? assignedToUserId = null,
+        Guid? departmentId = null,
         string? searchTerm = null,
+        DateTime? fromDate = null,
+        DateTime? toDate = null,
         CancellationToken ct = default);
 
     Task<Feedback?> GetByIdWithDetailsAsync(Guid id, CancellationToken ct = default);
@@ -29,8 +32,9 @@ public interface IFeedbackRepository : IRepository<Feedback>
     Task<IEnumerable<Feedback>> GetReportFeedbacksAsync(
         DateTime? fromDate = null,
         DateTime? toDate = null,
-        FeedbackCategory? category = null,
+        Guid? categoryId = null,
         FeedbackStatus? status = null,
         Guid? assignedToUserId = null,
+        Guid? departmentId = null,
         CancellationToken ct = default);
 }

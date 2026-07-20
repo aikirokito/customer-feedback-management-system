@@ -22,6 +22,8 @@ public class AppDbContext : DbContext
     public DbSet<FeedbackStatusHistory> FeedbackStatusHistories => Set<FeedbackStatusHistory>();
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+    public DbSet<FeedbackCategoryEntity> FeedbackCategories => Set<FeedbackCategoryEntity>();
+    public DbSet<Department> Departments => Set<Department>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -30,11 +32,14 @@ public class AppDbContext : DbContext
         // Apply all IEntityTypeConfiguration classes from this assembly automatically
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
 
-        // Global query filters for soft delete
-        modelBuilder.Entity<User>().HasQueryFilter(u => !u.IsDeleted);
+        // User soft-delete filtering is applied explicitly by UserRepository so
+        // historical relationships still retain their actor when a user is deleted.
         modelBuilder.Entity<Feedback>().HasQueryFilter(f => !f.IsDeleted);
-        modelBuilder.Entity<FeedbackResponse>().HasQueryFilter(r => !r.IsDeleted);
-        modelBuilder.Entity<FeedbackComment>().HasQueryFilter(c => !c.IsDeleted);
+        modelBuilder.Entity<FeedbackAttachment>().HasQueryFilter(a => !a.Feedback.IsDeleted);
+        modelBuilder.Entity<FeedbackAssignment>().HasQueryFilter(a => !a.Feedback.IsDeleted);
+        modelBuilder.Entity<FeedbackStatusHistory>().HasQueryFilter(h => !h.Feedback.IsDeleted);
+        modelBuilder.Entity<FeedbackResponse>().HasQueryFilter(r => !r.IsDeleted && !r.Feedback.IsDeleted);
+        modelBuilder.Entity<FeedbackComment>().HasQueryFilter(c => !c.IsDeleted && !c.Feedback.IsDeleted);
     }
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

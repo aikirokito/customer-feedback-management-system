@@ -16,12 +16,8 @@ public class CreateFeedbackRequestValidator : AbstractValidator<CreateFeedbackRe
             .NotEmpty().WithMessage("Description is required.")
             .MaximumLength(FeedbackConstants.DescriptionMaxLength);
 
-        RuleFor(x => x.Category)
-            .IsInEnum().WithMessage("Invalid feedback category.");
-        RuleFor(x => x.Rating)
-            .InclusiveBetween(1, 5)
-            .When(x => x.Rating.HasValue)
-            .WithMessage("Rating must be between 1 and 5.");
+        RuleFor(x => x.CategoryId)
+            .NotEmpty().WithMessage("Category is required.");
     }
 }
 
@@ -31,7 +27,7 @@ public class UpdateFeedbackRequestValidator : AbstractValidator<UpdateFeedbackRe
     {
         RuleFor(x => x.Title).NotEmpty().MaximumLength(FeedbackConstants.TitleMaxLength);
         RuleFor(x => x.Description).NotEmpty().MaximumLength(FeedbackConstants.DescriptionMaxLength);
-        RuleFor(x => x.Category).IsInEnum();
+        RuleFor(x => x.CategoryId).NotEmpty().WithMessage("Category is required.");
         RuleFor(x => x.Priority).IsInEnum();
     }
 }
@@ -41,6 +37,16 @@ public class UpdateFeedbackPriorityRequestValidator : AbstractValidator<UpdateFe
     public UpdateFeedbackPriorityRequestValidator()
     {
         RuleFor(x => x.Priority).IsInEnum();
+    }
+}
+
+public class RateFeedbackRequestValidator : AbstractValidator<RateFeedbackRequest>
+{
+    public RateFeedbackRequestValidator()
+    {
+        RuleFor(x => x.Rating)
+            .InclusiveBetween(1, 5)
+            .WithMessage("Rating must be between 1 and 5.");
     }
 }
 

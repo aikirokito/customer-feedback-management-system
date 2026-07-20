@@ -29,6 +29,8 @@ public class User : SoftDeletableEntity
     /// <summary>Account lifecycle status. Persisted as a string enum.</summary>
     public UserStatus Status { get; set; } = UserStatus.Active;
 
+    public Guid? DepartmentId { get; set; }
+
     /// <summary>Convenience helper — derived from Status, not stored.</summary>
     public bool IsActive => Status == UserStatus.Active;
 
@@ -47,4 +49,5 @@ public class User : SoftDeletableEntity
     public ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
     public ICollection<Notification> Notifications { get; set; } = new List<Notification>();
     public ICollection<AuditLog> AuditLogs { get; set; } = new List<AuditLog>();
+    public Department? Department { get; set; }
 }

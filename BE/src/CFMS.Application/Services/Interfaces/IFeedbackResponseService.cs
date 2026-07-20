@@ -7,6 +7,6 @@ public interface IFeedbackResponseService
 {
     Task<IEnumerable<FeedbackResponseDto>> GetResponsesForFeedbackAsync(Guid feedbackId, Guid requestingUserId, CancellationToken ct = default);
     Task<FeedbackResponseDto> CreateResponseAsync(CreateResponseRequest request, Guid respondedByUserId, CancellationToken ct = default);
-    Task<FeedbackResponseDto> UpdateResponseAsync(Guid responseId, UpdateResponseRequest request, Guid requestingUserId, CancellationToken ct = default);
-    Task DeleteResponseAsync(Guid responseId, Guid requestingUserId, CancellationToken ct = default);
+    Task<FeedbackResponseDto> UpdateResponseAsync(Guid feedbackId, Guid responseId, UpdateResponseRequest request, Guid requestingUserId, CancellationToken ct = default);
+    Task DeleteResponseAsync(Guid feedbackId, Guid responseId, Guid requestingUserId, CancellationToken ct = default);
 }

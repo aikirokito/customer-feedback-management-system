@@ -77,7 +77,7 @@ public class AuthController : BaseController
     [ProducesResponseType(204)]
     public async Task<IActionResult> Logout([FromBody] LogoutRequest request, CancellationToken ct)
     {
-        await _authService.LogoutAsync(request.RefreshToken, ct);
+        await _authService.LogoutAsync(request.RefreshToken, CurrentUserId, ct);
         return NoContentResponse();
     }
 

@@ -20,8 +20,7 @@ public class AuditLogsController : BaseController
         _auditLogService = auditLogService;
     }
 
-    [HttpGet]
-    [Route("~/api/admin/audit-logs")]
+    [HttpGet("~/api/admin/audit-logs")]
     [ProducesResponseType(200)]
     public async Task<IActionResult> GetAuditLogs([FromQuery] AuditLogFilterRequest filter, CancellationToken ct)
     {

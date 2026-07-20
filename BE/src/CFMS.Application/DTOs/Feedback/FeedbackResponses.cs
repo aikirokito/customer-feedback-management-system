@@ -7,8 +7,11 @@ public class FeedbackListItemDto
 {
     public Guid Id { get; set; }
     public string Title { get; set; } = string.Empty;
-    public FeedbackCategory Category { get; set; }
-    public int? Rating { get; set;}
+    public Guid? CategoryId { get; set; }
+    public string Category { get; set; } = string.Empty;
+    public Guid? DepartmentId { get; set; }
+    public string? DepartmentName { get; set; }
+    public int? Rating { get; set; }
     public FeedbackStatus Status { get; set; }
     public FeedbackPriority Priority { get; set; }
     public string SubmittedByUserName { get; set; } = string.Empty;
@@ -33,6 +36,7 @@ public class FeedbackDetailDto : FeedbackListItemDto
 public class FeedbackAttachmentDto
 {
     public Guid Id { get; set; }
+    public Guid UploadedByUserId { get; set; }
     public string FileName { get; set; } = string.Empty;
     public string PublicUrl { get; set; } = string.Empty;
     public string ContentType { get; set; } = string.Empty;
@@ -43,6 +47,7 @@ public class FeedbackAttachmentDto
 public class FeedbackResponseDto
 {
     public Guid Id { get; set; }
+    public Guid RespondedByUserId { get; set; }
     public string Content { get; set; } = string.Empty;
     public bool IsInternal { get; set; }
     public string RespondedByUserName { get; set; } = string.Empty;

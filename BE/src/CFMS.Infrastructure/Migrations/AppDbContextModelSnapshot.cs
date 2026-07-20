@@ -75,6 +75,38 @@ namespace CFMS.Infrastructure.Migrations
                     b.ToTable("audit_logs", (string)null);
                 });
 
+            modelBuilder.Entity("CFMS.Domain.Entities.Department", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("departments", (string)null);
+                });
+
             modelBuilder.Entity("CFMS.Domain.Entities.Feedback", b =>
                 {
                     b.Property<Guid>("Id")
@@ -84,10 +116,8 @@ namespace CFMS.Infrastructure.Migrations
                     b.Property<Guid?>("AssignedToUserId")
                         .HasColumnType("uuid");
 
-                    b.Property<string>("Category")
-                        .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("character varying(30)");
+                    b.Property<Guid>("CategoryId")
+                        .HasColumnType("uuid");
 
                     b.Property<DateTime?>("ClosedAtUtc")
                         .HasColumnType("timestamp with time zone");
@@ -99,6 +129,9 @@ namespace CFMS.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid?>("DeletedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("DepartmentId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("Description")
@@ -140,9 +173,11 @@ namespace CFMS.Infrastructure.Migrations
 
                     b.HasIndex("AssignedToUserId");
 
-                    b.HasIndex("Category");
+                    b.HasIndex("CategoryId");
 
                     b.HasIndex("CreatedAtUtc");
+
+                    b.HasIndex("DepartmentId");
 
                     b.HasIndex("Priority");
 
@@ -150,7 +185,14 @@ namespace CFMS.Infrastructure.Migrations
 
                     b.HasIndex("SubmittedByUserId");
 
-                    b.ToTable("feedbacks", (string)null);
+                    b.ToTable("feedbacks", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_feedbacks_Priority_Valid", "\"Priority\" IN ('Low', 'Medium', 'High', 'Urgent')");
+
+                            t.HasCheckConstraint("CK_feedbacks_Rating_Range", "\"Rating\" IS NULL OR \"Rating\" BETWEEN 1 AND 5");
+
+                            t.HasCheckConstraint("CK_feedbacks_Status_Valid", "\"Status\" IN ('New', 'Assigned', 'InProgress', 'WaitingForCustomer', 'Resolved', 'Rejected', 'Closed')");
+                        });
                 });
 
             modelBuilder.Entity("CFMS.Domain.Entities.FeedbackAssignment", b =>
@@ -181,18 +223,15 @@ namespace CFMS.Infrastructure.Migrations
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<Guid?>("UserId")
-                        .HasColumnType("uuid");
-
                     b.HasKey("Id");
 
                     b.HasIndex("AssignedByUserId");
 
                     b.HasIndex("AssignedToUserId");
 
-                    b.HasIndex("FeedbackId");
-
-                    b.HasIndex("UserId");
+                    b.HasIndex("FeedbackId")
+                        .IsUnique()
+                        .HasFilter("\"IsActive\" = TRUE");
 
                     b.ToTable("feedback_assignments", (string)null);
                 });
@@ -240,6 +279,43 @@ namespace CFMS.Infrastructure.Migrations
                     b.HasIndex("UploadedByUserId");
 
                     b.ToTable("feedback_attachments", (string)null);
+                });
+
+            modelBuilder.Entity("CFMS.Domain.Entities.FeedbackCategoryEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("DepartmentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DepartmentId");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("feedback_categories", (string)null);
                 });
 
             modelBuilder.Entity("CFMS.Domain.Entities.FeedbackComment", b =>
@@ -370,7 +446,12 @@ namespace CFMS.Infrastructure.Migrations
 
                     b.HasIndex("FeedbackId");
 
-                    b.ToTable("feedback_status_history", (string)null);
+                    b.ToTable("feedback_status_history", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_feedback_status_history_FromStatus_Valid", "\"FromStatus\" IN ('New', 'Assigned', 'InProgress', 'WaitingForCustomer', 'Resolved', 'Rejected', 'Closed')");
+
+                            t.HasCheckConstraint("CK_feedback_status_history_ToStatus_Valid", "\"ToStatus\" IN ('New', 'Assigned', 'InProgress', 'WaitingForCustomer', 'Resolved', 'Rejected', 'Closed')");
+                        });
                 });
 
             modelBuilder.Entity("CFMS.Domain.Entities.Notification", b =>
@@ -420,7 +501,10 @@ namespace CFMS.Infrastructure.Migrations
 
                     b.HasIndex("UserId", "IsRead");
 
-                    b.ToTable("notifications", (string)null);
+                    b.ToTable("notifications", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_notifications_Type_Valid", "\"Type\" IN ('FeedbackSubmitted', 'FeedbackAssigned', 'FeedbackStatusChanged', 'FeedbackResponseAdded', 'FeedbackCommentAdded', 'FeedbackResolved', 'FeedbackRejected', 'FeedbackClosed', 'SystemAlert')");
+                        });
                 });
 
             modelBuilder.Entity("CFMS.Domain.Entities.RefreshToken", b =>
@@ -493,6 +577,9 @@ namespace CFMS.Infrastructure.Migrations
                     b.Property<Guid?>("DeletedByUserId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("DepartmentId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("Email")
                         .IsRequired()
                         .HasMaxLength(256)
@@ -545,6 +632,8 @@ namespace CFMS.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("DepartmentId");
+
                     b.HasIndex("Email")
                         .IsUnique();
 
@@ -552,7 +641,12 @@ namespace CFMS.Infrastructure.Migrations
                         .IsUnique()
                         .HasFilter("\"GoogleSubject\" IS NOT NULL");
 
-                    b.ToTable("users", (string)null);
+                    b.ToTable("users", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_users_Role_Valid", "\"Role\" IN ('Customer', 'SupportStaff', 'DepartmentManager', 'SystemAdmin')");
+
+                            t.HasCheckConstraint("CK_users_Status_Valid", "\"Status\" IN ('Active', 'Disabled')");
+                        });
                 });
 
             modelBuilder.Entity("CFMS.Domain.Entities.AuditLog", b =>
@@ -572,6 +666,17 @@ namespace CFMS.Infrastructure.Migrations
                         .HasForeignKey("AssignedToUserId")
                         .OnDelete(DeleteBehavior.SetNull);
 
+                    b.HasOne("CFMS.Domain.Entities.FeedbackCategoryEntity", "Category")
+                        .WithMany("Feedbacks")
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CFMS.Domain.Entities.Department", "Department")
+                        .WithMany("Feedbacks")
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("CFMS.Domain.Entities.User", "SubmittedByUser")
                         .WithMany("SubmittedFeedbacks")
                         .HasForeignKey("SubmittedByUserId")
@@ -579,6 +684,10 @@ namespace CFMS.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("AssignedToUser");
+
+                    b.Navigation("Category");
+
+                    b.Navigation("Department");
 
                     b.Navigation("SubmittedByUser");
                 });
@@ -592,7 +701,7 @@ namespace CFMS.Infrastructure.Migrations
                         .IsRequired();
 
                     b.HasOne("CFMS.Domain.Entities.User", "AssignedToUser")
-                        .WithMany()
+                        .WithMany("Assignments")
                         .HasForeignKey("AssignedToUserId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
@@ -602,10 +711,6 @@ namespace CFMS.Infrastructure.Migrations
                         .HasForeignKey("FeedbackId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.HasOne("CFMS.Domain.Entities.User", null)
-                        .WithMany("Assignments")
-                        .HasForeignKey("UserId");
 
                     b.Navigation("AssignedByUser");
 
@@ -631,6 +736,16 @@ namespace CFMS.Infrastructure.Migrations
                     b.Navigation("Feedback");
 
                     b.Navigation("UploadedByUser");
+                });
+
+            modelBuilder.Entity("CFMS.Domain.Entities.FeedbackCategoryEntity", b =>
+                {
+                    b.HasOne("CFMS.Domain.Entities.Department", "Department")
+                        .WithMany("Categories")
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Department");
                 });
 
             modelBuilder.Entity("CFMS.Domain.Entities.FeedbackComment", b =>
@@ -719,6 +834,25 @@ namespace CFMS.Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("CFMS.Domain.Entities.User", b =>
+                {
+                    b.HasOne("CFMS.Domain.Entities.Department", "Department")
+                        .WithMany("Users")
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Department");
+                });
+
+            modelBuilder.Entity("CFMS.Domain.Entities.Department", b =>
+                {
+                    b.Navigation("Categories");
+
+                    b.Navigation("Feedbacks");
+
+                    b.Navigation("Users");
+                });
+
             modelBuilder.Entity("CFMS.Domain.Entities.Feedback", b =>
                 {
                     b.Navigation("AssignmentHistory");
@@ -730,6 +864,11 @@ namespace CFMS.Infrastructure.Migrations
                     b.Navigation("Responses");
 
                     b.Navigation("StatusHistory");
+                });
+
+            modelBuilder.Entity("CFMS.Domain.Entities.FeedbackCategoryEntity", b =>
+                {
+                    b.Navigation("Feedbacks");
                 });
 
             modelBuilder.Entity("CFMS.Domain.Entities.FeedbackComment", b =>

@@ -12,6 +12,6 @@ public interface IUserService
     Task UpdateUserRoleAsync(Guid id, UpdateUserRoleRequest request, Guid actorUserId, CancellationToken ct = default);
     Task DeactivateUserAsync(Guid id, Guid actorUserId, CancellationToken ct = default);
     Task ReactivateUserAsync(Guid id, Guid actorUserId, CancellationToken ct = default);
-    Task DeleteUserAsync(Guid id, CancellationToken ct = default);
+    Task DeleteUserAsync(Guid id, Guid actorUserId, CancellationToken ct = default);
     Task<UserDetailDto> GetProfileAsync(Guid userId, CancellationToken ct = default);
 }

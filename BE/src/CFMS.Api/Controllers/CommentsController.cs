@@ -42,7 +42,7 @@ public class CommentsController : BaseController
     [ProducesResponseType(403)]
     public async Task<IActionResult> UpdateComment([FromRoute] Guid feedbackId, [FromRoute] Guid commentId, [FromBody] UpdateCommentRequest request, CancellationToken ct)
     {
-        var result = await _commentService.UpdateCommentAsync(commentId, request, CurrentUserId, ct);
+        var result = await _commentService.UpdateCommentAsync(feedbackId, commentId, request, CurrentUserId, ct);
         return OkResponse(result, "Comment updated.");
     }
 
@@ -50,7 +50,7 @@ public class CommentsController : BaseController
     [ProducesResponseType(204)]
     public async Task<IActionResult> DeleteComment([FromRoute] Guid feedbackId, [FromRoute] Guid commentId, CancellationToken ct)
     {
-        await _commentService.DeleteCommentAsync(commentId, CurrentUserId, ct);
+        await _commentService.DeleteCommentAsync(feedbackId, commentId, CurrentUserId, ct);
         return NoContentResponse();
     }
 }

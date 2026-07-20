@@ -27,8 +27,7 @@ public class UsersController : BaseController
         _mapper = mapper;
     }
 
-    [HttpGet]
-    [Route("~/api/admin/users")]
+    [HttpGet("~/api/admin/users")]
     [Authorize(Roles = RoleNames.SystemAdmin)]
     [ProducesResponseType(200)]
     public async Task<IActionResult> GetUsers(
@@ -70,8 +69,7 @@ public class UsersController : BaseController
         return OkResponse(result, "Profile updated.");
     }
 
-    [HttpPatch("{id:guid}/role")]
-    [Route("~/api/admin/users/{id:guid}/role")]
+    [HttpPatch("~/api/admin/users/{id:guid}/role")]
     [Authorize(Roles = RoleNames.SystemAdmin)]
     [ProducesResponseType(204)]
     [ProducesResponseType(403)]
@@ -104,15 +102,14 @@ public class UsersController : BaseController
     [ProducesResponseType(204)]
     public async Task<IActionResult> DeleteUser([FromRoute] Guid id, CancellationToken ct)
     {
-        await _userService.DeleteUserAsync(id, ct);
+        await _userService.DeleteUserAsync(id, CurrentUserId, ct);
         return NoContentResponse();
     }
 
     /// <summary>
     /// Admin alias: toggle user active status via { "isActive": true/false }.
     /// </summary>
-    [HttpPatch]
-    [Route("~/api/admin/users/{id:guid}/status")]
+    [HttpPatch("~/api/admin/users/{id:guid}/status")]
     [Authorize(Roles = RoleNames.SystemAdmin)]
     [ProducesResponseType(204)]
     [ProducesResponseType(404)]
@@ -134,8 +131,13 @@ public class UsersController : BaseController
     [ProducesResponseType(200)]
     public async Task<IActionResult> GetSupportStaff(CancellationToken ct)
     {
+        var requestingUser = await _unitOfWork.Users.GetByIdAsync(CurrentUserId, ct);
         var users = await _unitOfWork.Users.GetByRoleAsync(UserRole.SupportStaff, ct);
         var activeUsers = users.Where(u => u.Status == Domain.Enums.UserStatus.Active);
+        if (requestingUser?.Role == UserRole.DepartmentManager)
+        {
+            activeUsers = activeUsers.Where(u => u.DepartmentId == requestingUser.DepartmentId);
+        }
         
         var dtos = activeUsers.Select(u => new UserListItemDto
         {
@@ -146,6 +148,8 @@ public class UsersController : BaseController
             AvatarUrl = u.AvatarUrl,
             Role = u.Role,
             IsActive = u.Status == Domain.Enums.UserStatus.Active,
+            DepartmentId = u.DepartmentId,
+            DepartmentName = u.Department?.Name,
             CreatedAtUtc = u.CreatedAtUtc
         }).ToList();
         
