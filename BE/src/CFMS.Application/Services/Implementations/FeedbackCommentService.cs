@@ -34,12 +34,30 @@ public class FeedbackCommentService : IFeedbackCommentService
         var author = await GetUserAsync(authorUserId, ct);
         EnsureCanComment(author, feedback, authorUserId);
 
+        if (feedback.Status is FeedbackStatus.Closed or FeedbackStatus.Rejected)
+        {
+            throw new BusinessRuleException("Comments cannot be added to closed or rejected feedback.");
+        }
+
+        FeedbackComment? parentComment = null;
+        if (request.ParentCommentId.HasValue)
+        {
+            parentComment = await _unitOfWork.Feedbacks.GetCommentByIdAsync(request.ParentCommentId.Value, ct)
+                ?? throw new NotFoundException(nameof(FeedbackComment), request.ParentCommentId.Value);
+
+            if (parentComment.FeedbackId != request.FeedbackId)
+            {
+                throw new BusinessRuleException("Parent comment must belong to the same feedback.");
+            }
+        }
+
         var comment = new FeedbackComment
         {
             FeedbackId = request.FeedbackId,
             AuthorUserId = authorUserId,
             Content = request.Content.Trim(),
-            ParentCommentId = request.ParentCommentId,
+            ParentCommentId = parentComment?.Id,
+            ParentComment = parentComment,
             AuthorUser = author
         };
 
@@ -62,11 +80,23 @@ public class FeedbackCommentService : IFeedbackCommentService
         return _mapper.Map<CommentDto>(comment);
     }
 
-    public async Task<CommentDto> UpdateCommentAsync(Guid commentId, UpdateCommentRequest request, Guid requestingUserId, CancellationToken ct = default)
+    public async Task<CommentDto> UpdateCommentAsync(Guid feedbackId, Guid commentId, UpdateCommentRequest request, Guid requestingUserId, CancellationToken ct = default)
     {
         var comment = await _unitOfWork.Feedbacks.GetCommentByIdAsync(commentId, ct)
             ?? throw new NotFoundException(nameof(FeedbackComment), commentId);
+
+        if (comment.FeedbackId != feedbackId)
+        {
+            throw new NotFoundException(nameof(FeedbackComment), commentId);
+        }
+
         var user = await GetUserAsync(requestingUserId, ct);
+        EnsureCanComment(user, comment.Feedback, requestingUserId);
+
+        if (user.Role != UserRole.SystemAdmin && comment.Feedback.Status is FeedbackStatus.Closed or FeedbackStatus.Rejected)
+        {
+            throw new BusinessRuleException("Comments on closed or rejected feedback cannot be changed.");
+        }
 
         if (comment.AuthorUserId != requestingUserId && user.Role != UserRole.SystemAdmin)
         {
@@ -81,11 +111,23 @@ public class FeedbackCommentService : IFeedbackCommentService
         return _mapper.Map<CommentDto>(comment);
     }
 
-    public async Task DeleteCommentAsync(Guid commentId, Guid requestingUserId, CancellationToken ct = default)
+    public async Task DeleteCommentAsync(Guid feedbackId, Guid commentId, Guid requestingUserId, CancellationToken ct = default)
     {
         var comment = await _unitOfWork.Feedbacks.GetCommentByIdAsync(commentId, ct)
             ?? throw new NotFoundException(nameof(FeedbackComment), commentId);
+
+        if (comment.FeedbackId != feedbackId)
+        {
+            throw new NotFoundException(nameof(FeedbackComment), commentId);
+        }
+
         var user = await GetUserAsync(requestingUserId, ct);
+        EnsureCanComment(user, comment.Feedback, requestingUserId);
+
+        if (user.Role != UserRole.SystemAdmin && comment.Feedback.Status is FeedbackStatus.Closed or FeedbackStatus.Rejected)
+        {
+            throw new BusinessRuleException("Comments on closed or rejected feedback cannot be deleted.");
+        }
 
         if (comment.AuthorUserId != requestingUserId && user.Role != UserRole.SystemAdmin)
         {
@@ -123,6 +165,9 @@ public class FeedbackCommentService : IFeedbackCommentService
             throw new ForbiddenException("Customers can only comment on their own feedback.");
         if (user.Role == UserRole.SupportStaff && feedback.AssignedToUserId != userId)
             throw new ForbiddenException("Support staff can only comment on assigned feedback.");
+        if (user.Role == UserRole.DepartmentManager &&
+            (!user.DepartmentId.HasValue || feedback.DepartmentId != user.DepartmentId))
+            throw new ForbiddenException("Department Managers can only comment on feedback in their department.");
     }
 
     private async Task SafeNotifyAsync(Guid userId, NotificationType type, string title, string message, Guid? entityId, string? entityType, CancellationToken ct)

@@ -12,7 +12,13 @@ public class Feedback : SoftDeletableEntity
 
     public string Description { get; set; } = string.Empty;
 
-    public FeedbackCategory Category { get; set; }
+    public int? Rating { get; set;}
+
+    public Guid CategoryId { get; set; }
+
+    public FeedbackCategoryEntity Category { get; set; } = null!;
+
+    public Guid? DepartmentId { get; set; }
 
     public FeedbackStatus Status { get; set; } = FeedbackStatus.New;
 
@@ -30,6 +36,7 @@ public class Feedback : SoftDeletableEntity
     // Navigation
     public User SubmittedByUser { get; set; } = null!;
     public User? AssignedToUser { get; set; }
+    public Department? Department { get; set; }
     public ICollection<FeedbackAttachment> Attachments { get; set; } = new List<FeedbackAttachment>();
     public ICollection<FeedbackResponse> Responses { get; set; } = new List<FeedbackResponse>();
     public ICollection<FeedbackComment> Comments { get; set; } = new List<FeedbackComment>();

@@ -15,6 +15,8 @@ public class UnitOfWork : IUnitOfWork
     public IRefreshTokenRepository RefreshTokens { get; }
     public INotificationRepository Notifications { get; }
     public IAuditLogRepository AuditLogs { get; }
+    public IFeedbackCategoryRepository FeedbackCategories { get; }
+    public IRepository<CFMS.Domain.Entities.Department> Departments { get; }
 
     public UnitOfWork(AppDbContext context)
     {
@@ -24,6 +26,8 @@ public class UnitOfWork : IUnitOfWork
         RefreshTokens = new RefreshTokenRepository(context);
         Notifications = new NotificationRepository(context);
         AuditLogs = new AuditLogRepository(context);
+        FeedbackCategories = new FeedbackCategoryRepository(context);
+        Departments = new Repository<CFMS.Domain.Entities.Department>(context);
     }
 
     public async Task<int> SaveChangesAsync(CancellationToken ct = default)

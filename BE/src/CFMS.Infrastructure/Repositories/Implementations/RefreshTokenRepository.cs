@@ -19,7 +19,8 @@ public class RefreshTokenRepository : Repository<RefreshToken>, IRefreshTokenRep
 
     public async Task RevokeAllUserTokensAsync(Guid userId, CancellationToken ct = default)
     {
-        // TODO: Execute bulk update for revocation
+        // Keep changes tracked so the caller can commit token revocation atomically
+        // with the related user/password operation in SaveChangesAsync.
         var tokens = await _dbSet.Where(rt => rt.UserId == userId && !rt.IsRevoked).ToListAsync(ct);
         foreach (var token in tokens)
         {

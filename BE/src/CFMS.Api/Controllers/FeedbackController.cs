@@ -89,6 +89,17 @@ public class FeedbackController : BaseController
         return OkResponse(result, "Feedback priority updated.");
     }
 
+    [HttpPatch("{id:guid}/rating")]
+    [Authorize(Roles = RoleNames.Customer)]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
+    [ProducesResponseType(403)]
+    public async Task<IActionResult> RateFeedback([FromRoute] Guid id, [FromBody] RateFeedbackRequest request, CancellationToken ct)
+    {
+        var result = await _feedbackService.RateFeedbackAsync(id, request, CurrentUserId, ct);
+        return OkResponse(result, "Feedback rating updated.");
+    }
+
     [HttpDelete("{id:guid}")]
     [ProducesResponseType(204)]
     [ProducesResponseType(403)]
@@ -120,7 +131,7 @@ public class FeedbackController : BaseController
     [ProducesResponseType(204)]
     public async Task<IActionResult> DeleteAttachment([FromRoute] Guid id, [FromRoute] Guid attachmentId, CancellationToken ct)
     {
-        await _feedbackService.DeleteAttachmentAsync(attachmentId, CurrentUserId, ct);
+        await _feedbackService.DeleteAttachmentAsync(id, attachmentId, CurrentUserId, ct);
         return NoContentResponse();
     }
 }

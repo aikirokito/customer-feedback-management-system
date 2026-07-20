@@ -1,38 +1,89 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import feedbackApi, { FEEDBACK_CATEGORIES } from '../api/feedbackApi';
+import feedbackApi from '../api/feedbackApi';
+
+const MAX_FILES = 3;
+const MAX_FILE_SIZE = 5 * 1024 * 1024;
+const ALLOWED_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'pdf', 'docx', 'xlsx'];
 
 const SubmitFeedbackPage = () => {
   const navigate = useNavigate();
+  const [categories, setCategories] = useState([]);
   const [form, setForm] = useState({
     title: '',
     description: '',
-    category: FEEDBACK_CATEGORIES[0].value,
+    categoryId: '',
   });
+  const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+  useEffect(() => {
+    feedbackApi.getCategories()
+      .then((response) => {
+        const activeCategories = response.data || [];
+        setCategories(activeCategories);
+        setForm((current) => ({
+          ...current,
+          categoryId: current.categoryId || activeCategories[0]?.id || '',
+        }));
+      })
+      .catch((err) => setError(err.normalizedMessage || 'Không thể tải danh mục phản hồi.'));
+  }, []);
+
+  const handleChange = (event) => {
+    setForm((current) => ({ ...current, [event.target.name]: event.target.value }));
     setError('');
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!form.title.trim() || !form.description.trim() || !form.category) {
-      setError('Vui lòng điền đầy đủ thông tin.');
+  const handleFilesChange = (event) => {
+    const selectedFiles = Array.from(event.target.files || []);
+    if (selectedFiles.length > MAX_FILES) {
+      setError(`Chỉ được tải lên tối đa ${MAX_FILES} tệp.`);
+      event.target.value = '';
+      return;
+    }
+
+    const invalidFile = selectedFiles.find((file) => {
+      const extension = file.name.split('.').pop()?.toLowerCase();
+      return file.size > MAX_FILE_SIZE || !ALLOWED_EXTENSIONS.includes(extension);
+    });
+
+    if (invalidFile) {
+      setError(`Tệp "${invalidFile.name}" không hợp lệ. Mỗi tệp tối đa 5 MB và phải đúng định dạng cho phép.`);
+      event.target.value = '';
+      return;
+    }
+
+    setFiles(selectedFiles);
+    setError('');
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    if (!form.title.trim() || !form.description.trim() || !form.categoryId) {
+      setError('Vui lòng điền đầy đủ các trường bắt buộc.');
       return;
     }
 
     setLoading(true);
     setError('');
     try {
-      await feedbackApi.submitFeedback({
+      const response = await feedbackApi.submitFeedback({
         title: form.title.trim(),
         description: form.description.trim(),
-        category: form.category,
+        categoryId: form.categoryId,
       });
-      navigate('/my-feedbacks', { state: { successMsg: 'Gửi phản hồi thành công!' } });
+      const feedbackId = response.data?.id;
+
+      if (feedbackId && files.length > 0) {
+        await Promise.all(files.map((file) => feedbackApi.uploadAttachment(feedbackId, file)));
+      }
+
+      navigate('/my-feedbacks', {
+        state: { successMsg: 'Gửi phản hồi thành công!' },
+        replace: true,
+      });
     } catch (err) {
       setError(err.normalizedMessage || 'Có lỗi xảy ra, vui lòng thử lại.');
     } finally {
@@ -43,56 +94,74 @@ const SubmitFeedbackPage = () => {
   return (
     <div className="submit-feedback-page">
       <div className="page-header">
-        <h1>Gửi Phản Hồi Mới</h1>
-        <p>Hãy chia sẻ ý kiến hoặc vấn đề của bạn, chúng tôi luôn lắng nghe.</p>
+        <h1>Gửi phản hồi mới</h1>
+        <p>Chia sẻ vấn đề hoặc đề xuất của bạn để đội ngũ hỗ trợ xử lý.</p>
       </div>
 
-      <div className="card" style={{ maxWidth: 600 }}>
-        {error && <div className="alert alert-error mb-4">⚠️ {error}</div>}
+      <div className="card" style={{ maxWidth: 720 }}>
+        {error && <div className="alert alert-error mb-4">{error}</div>}
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label className="form-label" htmlFor="feedback-title">Tiêu đề</label>
+            <label className="form-label" htmlFor="feedback-title">Tiêu đề *</label>
             <input
               id="feedback-title"
               name="title"
               type="text"
               className="form-control"
-              placeholder="Tóm tắt vấn đề của bạn..."
+              maxLength={200}
+              required
               value={form.title}
               onChange={handleChange}
             />
           </div>
 
           <div className="form-group">
-            <label className="form-label" htmlFor="feedback-category">Danh mục</label>
+            <label className="form-label" htmlFor="feedback-category">Danh mục *</label>
             <select
               id="feedback-category"
-              name="category"
+              name="categoryId"
               className="form-control"
-              value={form.category}
+              required
+              value={form.categoryId}
               onChange={handleChange}
+              disabled={categories.length === 0}
             >
-              {FEEDBACK_CATEGORIES.map(c => (
-                <option key={c.value} value={c.value}>{c.name}</option>
+              {categories.length === 0 && <option value="">Chưa có danh mục hoạt động</option>}
+              {categories.map((category) => (
+                <option key={category.id} value={category.id}>{category.name}</option>
               ))}
             </select>
           </div>
 
           <div className="form-group">
-            <label className="form-label" htmlFor="feedback-desc">Nội dung chi tiết</label>
+            <label className="form-label" htmlFor="feedback-description">Nội dung chi tiết *</label>
             <textarea
-              id="feedback-desc"
+              id="feedback-description"
               name="description"
               className="form-control"
-              placeholder="Mô tả chi tiết vấn đề bạn đang gặp phải..."
+              maxLength={5000}
+              required
               value={form.description}
               onChange={handleChange}
             />
           </div>
 
-          <button type="submit" className="btn btn-primary" disabled={loading}>
-            {loading ? 'Đang gửi...' : '📤 Gửi phản hồi'}
+          <div className="form-group">
+            <label className="form-label" htmlFor="feedback-files">Tệp đính kèm (tối đa 3 tệp)</label>
+            <input
+              id="feedback-files"
+              type="file"
+              className="form-control"
+              multiple
+              accept=".jpg,.jpeg,.png,.gif,.pdf,.docx,.xlsx"
+              onChange={handleFilesChange}
+            />
+            <small className="text-muted">Mỗi tệp tối đa 5 MB.</small>
+          </div>
+
+          <button type="submit" className="btn btn-primary" disabled={loading || categories.length === 0}>
+            {loading ? 'Đang gửi...' : 'Gửi phản hồi'}
           </button>
         </form>
       </div>

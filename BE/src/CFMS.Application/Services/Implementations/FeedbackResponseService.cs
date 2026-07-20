@@ -35,9 +35,15 @@ public class FeedbackResponseService : IFeedbackResponseService
         var user = await GetUserAsync(requestingUserId, ct);
         EnsureCanView(user, feedback, requestingUserId);
 
-        var responses = feedback.Responses
-            .Where(r => !r.IsDeleted)
-            .OrderBy(r => r.CreatedAtUtc);
+        IEnumerable<FeedbackResponse> responses = feedback.Responses
+            .Where(r => !r.IsDeleted);
+
+        if (user.Role == UserRole.Customer)
+        {
+            responses = responses.Where(r => !r.IsInternal);
+        }
+
+        responses = responses.OrderBy(r => r.CreatedAtUtc);
 
         return _mapper.Map<IEnumerable<FeedbackResponseDto>>(responses);
     }
@@ -48,6 +54,11 @@ public class FeedbackResponseService : IFeedbackResponseService
             ?? throw new NotFoundException(nameof(Feedback), request.FeedbackId);
         var responder = await GetUserAsync(respondedByUserId, ct);
         EnsureCanRespond(responder, feedback, respondedByUserId);
+
+        if (feedback.Status is FeedbackStatus.Closed or FeedbackStatus.Rejected)
+        {
+            throw new BusinessRuleException("Responses cannot be added to closed or rejected feedback.");
+        }
 
         var response = new FeedbackResponse
         {
@@ -73,11 +84,23 @@ public class FeedbackResponseService : IFeedbackResponseService
         return _mapper.Map<FeedbackResponseDto>(response);
     }
 
-    public async Task<FeedbackResponseDto> UpdateResponseAsync(Guid responseId, UpdateResponseRequest request, Guid requestingUserId, CancellationToken ct = default)
+    public async Task<FeedbackResponseDto> UpdateResponseAsync(Guid feedbackId, Guid responseId, UpdateResponseRequest request, Guid requestingUserId, CancellationToken ct = default)
     {
         var response = await _unitOfWork.Feedbacks.GetResponseByIdAsync(responseId, ct)
             ?? throw new NotFoundException(nameof(FeedbackResponse), responseId);
+
+        if (response.FeedbackId != feedbackId)
+        {
+            throw new NotFoundException(nameof(FeedbackResponse), responseId);
+        }
+
         var user = await GetUserAsync(requestingUserId, ct);
+        EnsureCanView(user, response.Feedback, requestingUserId);
+
+        if (user.Role != UserRole.SystemAdmin && response.Feedback.Status is FeedbackStatus.Closed or FeedbackStatus.Rejected)
+        {
+            throw new BusinessRuleException("Responses on closed or rejected feedback cannot be changed.");
+        }
 
         if (response.RespondedByUserId != requestingUserId && user.Role != UserRole.SystemAdmin)
         {
@@ -92,11 +115,23 @@ public class FeedbackResponseService : IFeedbackResponseService
         return _mapper.Map<FeedbackResponseDto>(response);
     }
 
-    public async Task DeleteResponseAsync(Guid responseId, Guid requestingUserId, CancellationToken ct = default)
+    public async Task DeleteResponseAsync(Guid feedbackId, Guid responseId, Guid requestingUserId, CancellationToken ct = default)
     {
         var response = await _unitOfWork.Feedbacks.GetResponseByIdAsync(responseId, ct)
             ?? throw new NotFoundException(nameof(FeedbackResponse), responseId);
+
+        if (response.FeedbackId != feedbackId)
+        {
+            throw new NotFoundException(nameof(FeedbackResponse), responseId);
+        }
+
         var user = await GetUserAsync(requestingUserId, ct);
+        EnsureCanView(user, response.Feedback, requestingUserId);
+
+        if (user.Role != UserRole.SystemAdmin && response.Feedback.Status is FeedbackStatus.Closed or FeedbackStatus.Rejected)
+        {
+            throw new BusinessRuleException("Responses on closed or rejected feedback cannot be deleted.");
+        }
 
         if (response.RespondedByUserId != requestingUserId && user.Role != UserRole.SystemAdmin)
         {
@@ -122,12 +157,18 @@ public class FeedbackResponseService : IFeedbackResponseService
             throw new ForbiddenException("Customers can only view responses on their own feedback.");
         if (user.Role == UserRole.SupportStaff && feedback.AssignedToUserId != userId)
             throw new ForbiddenException("Support staff can only view assigned feedback responses.");
+        if (user.Role == UserRole.DepartmentManager &&
+            (!user.DepartmentId.HasValue || feedback.DepartmentId != user.DepartmentId))
+            throw new ForbiddenException("Department Managers can only view responses in their department.");
     }
 
     private static void EnsureCanRespond(User user, Feedback feedback, Guid userId)
     {
         if (user.Role == UserRole.SupportStaff && feedback.AssignedToUserId != userId)
             throw new ForbiddenException("Support staff can only respond to assigned feedback.");
+        if (user.Role == UserRole.DepartmentManager &&
+            (!user.DepartmentId.HasValue || feedback.DepartmentId != user.DepartmentId))
+            throw new ForbiddenException("Department Managers can only respond to feedback in their department.");
         if (user.Role == UserRole.Customer)
             throw new ForbiddenException("Customers cannot create staff responses.");
     }

@@ -6,7 +6,8 @@ const userApi = {
   updateMyProfile: (data) => axiosClient.put('/Users/me', data),
 
   // Admin user management
-  updateUserRole: (id, role) => axiosClient.patch(`/admin/users/${id}/role`, { role }),
+  updateUserRole: (id, role, departmentId = null) =>
+    axiosClient.patch(`/admin/users/${id}/role`, { role, departmentId }),
   updateUserStatus: (id, isActive) => axiosClient.patch(`/admin/users/${id}/status`, { isActive }),
   deactivateUser: (id) => axiosClient.patch(`/Users/${id}/deactivate`),
   reactivateUser: (id) => axiosClient.patch(`/Users/${id}/reactivate`),
@@ -14,6 +15,10 @@ const userApi = {
 
   // Support Staff lookup (for Manager/Admin assignment UI)
   getSupportStaff: () => axiosClient.get('/Users/support-staff').then(asListResponse),
+  getDepartments: () => axiosClient.get('/Departments').then(asListResponse),
+  getAllDepartments: () => axiosClient.get('/admin/departments').then(asListResponse),
+  createDepartment: (data) => axiosClient.post('/admin/departments', data),
+  updateDepartment: (id, data) => axiosClient.patch(`/admin/departments/${id}`, data),
 
   // Reports
   getReports: (params) => axiosClient.get('/Reports/summary', { params }),

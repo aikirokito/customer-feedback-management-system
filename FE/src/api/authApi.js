@@ -11,6 +11,8 @@ const authApi = {
   logout: (refreshToken) => axiosClient.post('/Auth/logout', normalizeRefreshTokenPayload(refreshToken)),
   getProfile: () => axiosClient.get('/Users/me'),
   refreshToken: (refreshToken) => axiosClient.post('/Auth/refresh-token', normalizeRefreshTokenPayload(refreshToken)),
+  googleLogin: (idToken) => axiosClient.post('/Auth/google-login', { idToken }),
+  changePassword: (data) => axiosClient.post('/Auth/change-password', data),
 };
 
 export default authApi;

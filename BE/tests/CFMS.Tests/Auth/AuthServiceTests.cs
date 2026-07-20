@@ -9,6 +9,7 @@ using CFMS.Domain.Enums;
 using FluentAssertions;
 using Moq;
 using Xunit;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace CFMS.Tests.Auth;
 
@@ -37,7 +38,9 @@ public class AuthServiceTests
         _unitOfWorkMock.Setup(u => u.RefreshTokens).Returns(_refreshTokenRepositoryMock.Object);
         _unitOfWorkMock.Setup(u => u.AuditLogs).Returns(_auditLogRepositoryMock.Object);
 
-        var config = new MapperConfiguration(cfg => cfg.AddProfile<UserMappingProfile>());
+        var config = new MapperConfiguration(
+            cfg => cfg.AddProfile<UserMappingProfile>(),
+            NullLoggerFactory.Instance);
         _mapper = config.CreateMapper();
     }
 
@@ -291,13 +294,33 @@ public class AuthServiceTests
         var service = CreateService();
 
         // Act
-        await service.LogoutAsync("token_to_logout");
+        await service.LogoutAsync("token_to_logout", token.UserId);
 
         // Assert
         token.IsRevoked.Should().BeTrue();
         token.RevokedAtUtc.Should().NotBeNull();
         _refreshTokenRepositoryMock.Verify(r => r.Update(token), Times.Once);
         _unitOfWorkMock.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Logout_WithAnotherUsersRefreshToken_IsRejected()
+    {
+        var token = new RefreshToken
+        {
+            Token = "another_users_token",
+            UserId = Guid.NewGuid(),
+            IsRevoked = false
+        };
+        _refreshTokenRepositoryMock
+            .Setup(repository => repository.GetByTokenAsync(token.Token, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(token);
+
+        var action = () => CreateService().LogoutAsync(token.Token, Guid.NewGuid());
+
+        await action.Should().ThrowAsync<ForbiddenException>();
+        token.IsRevoked.Should().BeFalse();
+        _unitOfWorkMock.Verify(unit => unit.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]

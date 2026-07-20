@@ -135,6 +135,28 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
+  const googleLogin = useCallback(async (idToken) => {
+    setLoading(true);
+    try {
+      const res = await authApi.googleLogin(idToken);
+      const auth = res.data;
+      if (!auth?.accessToken || !auth?.refreshToken || !auth?.user) {
+        return { success: false, message: 'Phản hồi đăng nhập Google không hợp lệ.' };
+      }
+
+      const userData = normalizeUser(auth.user);
+      localStorage.setItem('accessToken', auth.accessToken);
+      localStorage.setItem('refreshToken', auth.refreshToken);
+      localStorage.setItem('user', JSON.stringify(userData));
+      setUser(userData);
+      return { success: true, user: userData, redirectTo: getDefaultRouteForRole(userData) };
+    } catch (err) {
+      return { success: false, message: err.normalizedMessage || 'Đăng nhập Google thất bại.' };
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   const register = useCallback(async (data) => {
     setLoading(true);
     try {
@@ -162,6 +184,20 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
+  const updateCurrentUser = useCallback((changes) => {
+    setUser((current) => {
+      const normalized = normalizeUser({ ...current, ...changes });
+      localStorage.setItem('user', JSON.stringify(normalized));
+      return normalized;
+    });
+  }, []);
+
+  useEffect(() => {
+    const handleSessionRefresh = (event) => updateCurrentUser(event.detail || {});
+    window.addEventListener('cfms:session-refreshed', handleSessionRefresh);
+    return () => window.removeEventListener('cfms:session-refreshed', handleSessionRefresh);
+  }, [updateCurrentUser]);
+
   const hasRole = useCallback((roles) => {
     if (!user) return false;
     const allowed = Array.isArray(roles) ? roles : [roles];
@@ -169,7 +205,7 @@ export const AuthProvider = ({ children }) => {
   }, [user]);
 
   return (
-    <AuthContext.Provider value={{ user, loading, initializing, login, register, logout, hasRole }}>
+    <AuthContext.Provider value={{ user, loading, initializing, login, googleLogin, register, logout, hasRole, updateCurrentUser }}>
       {children}
     </AuthContext.Provider>
   );

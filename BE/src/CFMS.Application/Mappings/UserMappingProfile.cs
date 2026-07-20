@@ -15,10 +15,14 @@ public class UserMappingProfile : Profile
 
         // User → UserListItemDto / UserDetailDto (used in admin endpoints, Sprint 2)
         CreateMap<User, UserListItemDto>()
-            .ForMember(dest => dest.IsActive, opt => opt.MapFrom(src => src.Status == UserStatus.Active));
+            .ForMember(dest => dest.IsActive, opt => opt.MapFrom(src => src.Status == UserStatus.Active))
+            .ForMember(dest => dest.DepartmentName,
+                opt => opt.MapFrom(src => src.Department != null ? src.Department.Name : null));
 
         CreateMap<User, UserDetailDto>()
-            .ForMember(dest => dest.IsActive, opt => opt.MapFrom(src => src.Status == UserStatus.Active));
+            .ForMember(dest => dest.IsActive, opt => opt.MapFrom(src => src.Status == UserStatus.Active))
+            .ForMember(dest => dest.DepartmentName,
+                opt => opt.MapFrom(src => src.Department != null ? src.Department.Name : null));
 
         // UpdateUserRequest → User (only profile fields; email and role are ignored)
         CreateMap<UpdateUserRequest, User>()

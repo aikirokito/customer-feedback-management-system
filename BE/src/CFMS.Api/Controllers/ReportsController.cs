@@ -24,7 +24,7 @@ public class ReportsController : BaseController
     [ProducesResponseType(200)]
     public async Task<IActionResult> GetFeedbackSummary([FromQuery] ReportFilterRequest filter, CancellationToken ct)
     {
-        var result = await _reportService.GetFeedbackSummaryAsync(filter, ct);
+        var result = await _reportService.GetFeedbackSummaryAsync(filter, CurrentUserId, ct);
         return OkResponse(result);
     }
 
@@ -32,7 +32,7 @@ public class ReportsController : BaseController
     [ProducesResponseType(200)]
     public async Task<IActionResult> GetFeedbackByStatus([FromQuery] ReportFilterRequest filter, CancellationToken ct)
     {
-        var result = await _reportService.GetFeedbackSummaryAsync(filter, ct);
+        var result = await _reportService.GetFeedbackSummaryAsync(filter, CurrentUserId, ct);
         return OkResponse(result.ByStatus);
     }
 
@@ -40,7 +40,7 @@ public class ReportsController : BaseController
     [ProducesResponseType(200)]
     public async Task<IActionResult> GetFeedbackByCategory([FromQuery] ReportFilterRequest filter, CancellationToken ct)
     {
-        var result = await _reportService.GetFeedbackSummaryAsync(filter, ct);
+        var result = await _reportService.GetFeedbackSummaryAsync(filter, CurrentUserId, ct);
         return OkResponse(result.ByCategory);
     }
 
@@ -48,15 +48,23 @@ public class ReportsController : BaseController
     [ProducesResponseType(200)]
     public async Task<IActionResult> GetFeedbackByPriority([FromQuery] ReportFilterRequest filter, CancellationToken ct)
     {
-        var result = await _reportService.GetFeedbackSummaryAsync(filter, ct);
+        var result = await _reportService.GetFeedbackSummaryAsync(filter, CurrentUserId, ct);
         return OkResponse(result.ByPriority);
+    }
+
+    [HttpGet("feedback-by-month")]
+    [ProducesResponseType(200)]
+    public async Task<IActionResult> GetFeedbackByMonth([FromQuery] ReportFilterRequest filter, CancellationToken ct)
+    {
+        var result = await _reportService.GetFeedbackTrendAsync(filter, CurrentUserId, ct);
+        return OkResponse(result);
     }
 
     [HttpGet("staff-workload")]
     [ProducesResponseType(200)]
     public async Task<IActionResult> GetStaffPerformance([FromQuery] ReportFilterRequest filter, CancellationToken ct)
     {
-        var result = await _reportService.GetStaffPerformanceAsync(filter, ct);
+        var result = await _reportService.GetStaffPerformanceAsync(filter, CurrentUserId, ct);
         return OkResponse(result);
     }
 }

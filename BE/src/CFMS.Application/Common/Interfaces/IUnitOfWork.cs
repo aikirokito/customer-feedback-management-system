@@ -11,6 +11,8 @@ public interface IUnitOfWork : IDisposable
     IRefreshTokenRepository RefreshTokens { get; }
     INotificationRepository Notifications { get; }
     IAuditLogRepository AuditLogs { get; }
+    IFeedbackCategoryRepository FeedbackCategories { get; }
+    IRepository<Domain.Entities.Department> Departments { get; }
 
     Task<int> SaveChangesAsync(CancellationToken ct = default);
     Task BeginTransactionAsync(CancellationToken ct = default);

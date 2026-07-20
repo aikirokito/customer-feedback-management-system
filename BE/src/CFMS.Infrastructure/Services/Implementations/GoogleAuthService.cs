@@ -1,4 +1,5 @@
 using CFMS.Application.Common.Interfaces;
+using CFMS.Application.Common.Exceptions;
 using Google.Apis.Auth;
 using Microsoft.Extensions.Configuration;
 
@@ -19,20 +20,24 @@ public class GoogleAuthService : IGoogleAuthService
     public async Task<(string Subject, string Email, string FirstName, string LastName)> ValidateTokenAsync(string idToken, CancellationToken ct = default)
     {
         var clientId = _configuration["GoogleAuth:ClientId"];
-        var settings = new GoogleJsonWebSignature.ValidationSettings();
-        if (!string.IsNullOrEmpty(clientId) && clientId != "YOUR_GOOGLE_CLIENT_ID")
+        if (string.IsNullOrWhiteSpace(clientId) || clientId == "YOUR_GOOGLE_CLIENT_ID")
         {
-            settings.Audience = new[] { clientId };
+            throw new InvalidOperationException("GoogleAuth:ClientId must be configured before Google login can be used.");
         }
+
+        var settings = new GoogleJsonWebSignature.ValidationSettings
+        {
+            Audience = new[] { clientId }
+        };
 
         try
         {
             var payload = await GoogleJsonWebSignature.ValidateAsync(idToken, settings);
             return (payload.Subject, payload.Email, payload.GivenName ?? "", payload.FamilyName ?? "");
         }
-        catch (InvalidJwtException ex)
+        catch (InvalidJwtException)
         {
-            throw new UnauthorizedAccessException("Invalid Google ID token.", ex);
+            throw new UnauthorizedException("Invalid Google ID token.");
         }
     }
 }

@@ -33,6 +33,7 @@ public static class InfrastructureServiceExtensions
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
         services.AddScoped<INotificationRepository, NotificationRepository>();
         services.AddScoped<IAuditLogRepository, AuditLogRepository>();
+        services.AddScoped<IFeedbackCategoryRepository, FeedbackCategoryRepository>();
 
         // Infrastructure Services
         services.AddScoped<IJwtService, JwtService>();

@@ -7,7 +7,6 @@ public class ReportFilterRequestValidator : AbstractValidator<ReportFilterReques
 {
     public ReportFilterRequestValidator()
     {
-        RuleFor(x => x.Category).IsInEnum().When(x => x.Category.HasValue);
         RuleFor(x => x.Status).IsInEnum().When(x => x.Status.HasValue);
         RuleFor(x => x.ToDate)
             .GreaterThanOrEqualTo(x => x.FromDate)

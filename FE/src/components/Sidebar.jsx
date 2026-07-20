@@ -17,6 +17,12 @@ const navItems = [
     roles: ['Customer', 'SupportStaff', 'DepartmentManager', 'SystemAdmin'],
   },
   {
+    label: 'Thông báo',
+    to: '/notifications',
+    icon: '🔔',
+    roles: ['Customer', 'SupportStaff', 'DepartmentManager', 'SystemAdmin'],
+  },
+  {
     label: 'Gửi phản hồi',
     to: '/submit-feedback',
     icon: '✍️',
@@ -44,6 +50,18 @@ const navItems = [
     label: 'Quản lý người dùng',
     to: '/manage-users',
     icon: '👥',
+    roles: ['SystemAdmin'],
+  },
+  {
+    label: 'Quản lý danh mục',
+    to: '/manage-categories',
+    icon: '🗂️',
+    roles: ['SystemAdmin'],
+  },
+  {
+    label: 'Quản lý phòng ban',
+    to: '/manage-departments',
+    icon: '🏢',
     roles: ['SystemAdmin'],
   },
   {

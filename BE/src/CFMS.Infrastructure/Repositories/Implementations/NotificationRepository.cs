@@ -16,7 +16,7 @@ public class NotificationRepository : Repository<Notification>, INotificationRep
 
     public async Task MarkAllAsReadAsync(Guid userId, CancellationToken ct = default)
     {
-        // TODO: Use ExecuteUpdateAsync for performance in EF9
+        // Keep changes tracked so the service controls the transaction boundary.
         var notifications = await _dbSet.Where(n => n.UserId == userId && !n.IsRead).ToListAsync(ct);
         foreach (var n in notifications)
         {

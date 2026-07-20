@@ -6,14 +6,14 @@ public class CreateFeedbackRequest
 {
     public string Title { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
-    public FeedbackCategory Category { get; set; }
+    public Guid CategoryId { get; set; }
 }
 
 public class UpdateFeedbackRequest
 {
     public string Title { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
-    public FeedbackCategory Category { get; set; }
+    public Guid CategoryId { get; set; }
     public FeedbackPriority Priority { get; set; }
 }
 
@@ -21,6 +21,11 @@ public class UpdateFeedbackRequest
 public class UpdateFeedbackPriorityRequest
 {
     public FeedbackPriority Priority { get; set; }
+}
+
+public class RateFeedbackRequest
+{
+    public int Rating { get; set; }
 }
 
 public class ChangeFeedbackStatusRequest
@@ -32,10 +37,13 @@ public class ChangeFeedbackStatusRequest
 public class FeedbackFilterRequest
 {
     public FeedbackStatus? Status { get; set; }
-    public FeedbackCategory? Category { get; set; }
+    public Guid? CategoryId { get; set; }
     public FeedbackPriority? Priority { get; set; }
+    public Guid? SubmittedByUserId { get; set; }
     public Guid? AssignedToUserId { get; set; }
     public string? SearchTerm { get; set; }
+    public DateTime? FromDate { get; set; }
+    public DateTime? ToDate { get; set; }
     public int Page { get; set; } = 1;
     public int PageSize { get; set; } = 20;
 }
