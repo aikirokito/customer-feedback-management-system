@@ -1,6 +1,27 @@
 # Customer Feedback Management System
 
-CFMS is a role-based customer feedback and support-ticket platform built with ASP.NET Core 9, Entity Framework Core, PostgreSQL, React 19, and Vite.
+## Hướng dẫn đọc code nhanh
+
+Dự án được chia thành hai phần: `BE` là API và nghiệp vụ, `FE` là giao diện React. Trong backend, tên các package được giữ ngắn gọn và mô tả đúng trách nhiệm:
+
+- `CFMS.Domain`: dữ liệu cốt lõi (`User`, `Feedback`, trạng thái) và quy tắc không phụ thuộc giao diện/database.
+- `CFMS.Application`: các use case trong `Services`, dữ liệu request/response trong `DTOs`, kiểm tra input trong `Validators`.
+- `CFMS.Infrastructure`: code kết nối database và repository.
+- `CFMS.Api`: các URL API trong `Controllers`; controller chỉ nhận request rồi gọi service.
+- `CFMS.Tests`: unit test cho business rule và service.
+
+Luồng V1 duy nhất là:
+
+```text
+Customer submit       Manager assign       Staff start       Staff resolve       Manager close
+SUBMITTED          -> ASSIGNED          -> IN_PROGRESS    -> RESOLVED          -> CLOSED
+    |
+    +---------------- Customer cancel (trước khi assign) ----------------------> CANCELLED
+```
+
+Các hàm nghiệp vụ chính có XML comment tiếng Việt ngay trên hàm. Nơi nên đọc đầu tiên là `FeedbackStatusRules.cs`, sau đó `FeedbackService.cs`, `FeedbackAssignmentService.cs`, và cuối cùng `FeedbackController.cs`.
+
+CFMS is a role-based customer feedback platform built with ASP.NET Core 8, Entity Framework Core, SQL Server 2022, React 19, and Vite.
 
 ## Feature coverage
 
@@ -18,9 +39,9 @@ CFMS is a role-based customer feedback and support-ticket platform built with AS
 
 ## Prerequisites
 
-- .NET SDK 9
+- .NET SDK 8 or newer
 - Node.js compatible with Vite 8
-- PostgreSQL 14+ or a Supabase PostgreSQL project
+- SQL Server 2022 (Developer/Express đều dùng được)
 - Optional: Supabase Storage for feedback attachments
 - Optional: Google OAuth web client for Google sign-in
 
@@ -30,7 +51,7 @@ Configure secrets with environment variables or .NET user secrets. Do not commit
 
 ```powershell
 cd BE/src/CFMS.Api
-dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Host=localhost;Port=5432;Database=cfms;Username=postgres;Password=YOUR_PASSWORD"
+dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Server=localhost;Database=CustomerFeedbackDb;Trusted_Connection=True;TrustServerCertificate=True"
 dotnet user-secrets set "Jwt:Secret" "YOUR_RANDOM_SECRET_WITH_AT_LEAST_32_CHARACTERS"
 dotnet user-secrets set "SupabaseStorage:Url" "https://YOUR_PROJECT.supabase.co"
 dotnet user-secrets set "SupabaseStorage:SecretKey" "YOUR_SB_SECRET_KEY"

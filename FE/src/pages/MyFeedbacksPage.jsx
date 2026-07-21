@@ -3,12 +3,11 @@ import { Link, useLocation } from 'react-router-dom';
 import feedbackApi from '../api/feedbackApi';
 
 const STATUS_LABELS = {
-  New: 'Mới',
+  Submitted: 'Đã gửi',
   Assigned: 'Đã giao',
   InProgress: 'Đang xử lý',
-  WaitingForCustomer: 'Chờ khách hàng',
   Resolved: 'Đã giải quyết',
-  Rejected: 'Từ chối',
+  Cancelled: 'Đã hủy',
   Closed: 'Đã đóng',
 };
 
@@ -51,7 +50,7 @@ const MyFeedbacksPage = () => {
   const deleteFeedback = async (item) => {
     if (!window.confirm(`Xóa phản hồi "${item.title}"?`)) return;
     try {
-      await feedbackApi.deleteFeedback(item.id);
+      await feedbackApi.cancelFeedback(item.id);
       setMessage('Đã xóa phản hồi.');
       await fetchFeedbacks();
     } catch (error) {
@@ -113,7 +112,7 @@ const MyFeedbacksPage = () => {
                       <td>{item.rating ? `${item.rating}/5` : '---'}</td>
                       <td><span className="badge badge-info">{STATUS_LABELS[item.status] || item.status}</span></td>
                       <td>{new Date(item.createdAtUtc).toLocaleDateString('vi-VN')}</td>
-                      <td><div className="flex gap-2"><Link to={`/feedbacks/${item.id}`} className="btn btn-sm btn-secondary">Chi tiết</Link>{item.status === 'New' && <button className="btn btn-sm btn-danger" type="button" onClick={() => deleteFeedback(item)}>Xóa</button>}</div></td>
+                      <td><div className="flex gap-2"><Link to={`/feedbacks/${item.id}`} className="btn btn-sm btn-secondary">Chi tiết</Link>{item.status === 'Submitted' && <button className="btn btn-sm btn-danger" type="button" onClick={() => deleteFeedback(item)}>Hủy</button>}</div></td>
                     </tr>
                   ))}
                 </tbody>

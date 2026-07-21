@@ -16,7 +16,8 @@ const feedbackApi = {
   getMyFeedbacks: (params) => axiosClient.get('/Feedback/my', { params }).then(asListResponse),
   getFeedbackById: (id) => axiosClient.get(`/Feedback/${id}`),
   updateFeedback: (id, data) => axiosClient.put(`/Feedback/${id}`, data),
-  deleteFeedback: (id) => axiosClient.delete(`/Feedback/${id}`),
+  // V1 không xóa dữ liệu: Customer hủy phiếu để lịch sử trạng thái vẫn được giữ lại.
+  cancelFeedback: (id) => axiosClient.patch(`/Feedback/${id}/cancel`),
 
   getAssignedFeedbacks: (params) => axiosClient.get('/Feedback', { params }).then(asListResponse),
   getDepartmentFeedbacks: (params) => axiosClient.get('/Feedback', { params }).then(asListResponse),

@@ -13,7 +13,7 @@ public class FeedbackAssignmentConfiguration : IEntityTypeConfiguration<Feedback
         builder.Property(a => a.Note).HasMaxLength(1000);
         builder.HasIndex(a => a.FeedbackId)
             .IsUnique()
-            .HasFilter("\"IsActive\" = TRUE");
+            .HasFilter("[IsActive] = 1");
         builder.HasIndex(a => a.AssignedToUserId);
 
         builder.HasOne(a => a.AssignedToUser)

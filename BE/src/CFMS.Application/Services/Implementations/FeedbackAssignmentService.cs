@@ -27,6 +27,10 @@ public class FeedbackAssignmentService : IFeedbackAssignmentService
         _auditLogService = auditLogService;
     }
 
+    /// <summary>
+    /// Manager phân công hoặc phân công lại một phản hồi cho Staff đang hoạt động.
+    /// Lần phân công đầu tiên đồng thời chuyển SUBMITTED sang ASSIGNED và ghi lịch sử.
+    /// </summary>
     public async Task<AssignmentDto> AssignFeedbackAsync(AssignFeedbackRequest request, Guid assignedByUserId, CancellationToken ct = default)
     {
         var feedback = await _unitOfWork.Feedbacks.GetByIdWithDetailsAsync(request.FeedbackId, ct)
@@ -52,21 +56,20 @@ public class FeedbackAssignmentService : IFeedbackAssignmentService
             }
         }
 
-        if (feedback.Status is FeedbackStatus.Closed or FeedbackStatus.Rejected or FeedbackStatus.Resolved)
+        if (feedback.Status is FeedbackStatus.Closed or FeedbackStatus.Cancelled or FeedbackStatus.Resolved)
         {
             throw new BusinessRuleException("Closed, rejected, or resolved feedback cannot be assigned.");
         }
         var isReassignment = feedback.AssignedToUserId.HasValue;
 
-        if (!isReassignment && feedback.Status != FeedbackStatus.New)
+        if (!isReassignment && feedback.Status != FeedbackStatus.Submitted)
         {
             throw new BusinessRuleException("Only new feedback can be assigned for the first time.");
         }
 
         if (isReassignment && feedback.Status is not (
             FeedbackStatus.Assigned or
-            FeedbackStatus.InProgress or
-            FeedbackStatus.WaitingForCustomer))
+            FeedbackStatus.InProgress))
         {
             throw new BusinessRuleException("Only active assigned feedback can reassigned.");
         }
@@ -120,13 +123,13 @@ public class FeedbackAssignmentService : IFeedbackAssignmentService
         feedback.DepartmentId ??= assignee.DepartmentId;
         feedback.UpdatedAtUtc = DateTime.UtcNow;
 
-        if (feedback.Status == FeedbackStatus.New)
+        if (feedback.Status == FeedbackStatus.Submitted)
         {
             feedback.Status = FeedbackStatus.Assigned;
             feedback.StatusHistory.Add(new FeedbackStatusHistory
             {
                 FeedbackId = feedback.Id,
-                FromStatus = FeedbackStatus.New,
+                FromStatus = FeedbackStatus.Submitted,
                 ToStatus = FeedbackStatus.Assigned,
                 ChangedByUserId = assignedByUserId,
                 Reason = "Feedback assigned to support staff."
@@ -178,7 +181,7 @@ public class FeedbackAssignmentService : IFeedbackAssignmentService
             throw new BusinessRuleException("Feedback is not currently assigned.");
         }
 
-        if (feedback.Status is FeedbackStatus.Closed or FeedbackStatus.Rejected or FeedbackStatus.Resolved)
+        if (feedback.Status is FeedbackStatus.Closed or FeedbackStatus.Cancelled or FeedbackStatus.Resolved)
         {
             throw new BusinessRuleException("Closed, rejected, or resolved feedback cannot be unassigned.");
         }
@@ -190,18 +193,18 @@ public class FeedbackAssignmentService : IFeedbackAssignmentService
         }
 
         feedback.AssignedToUserId = null;
-        feedback.Status = FeedbackStatus.New;
+        feedback.Status = FeedbackStatus.Submitted;
         feedback.ResolvedAtUtc = null;
         feedback.ClosedAtUtc = null;
         feedback.UpdatedAtUtc = DateTime.UtcNow;
 
-        if (previousStatus != FeedbackStatus.New)
+        if (previousStatus != FeedbackStatus.Submitted)
         {
             feedback.StatusHistory.Add(new FeedbackStatusHistory
             {
                 FeedbackId = feedback.Id,
                 FromStatus = previousStatus,
-                ToStatus = FeedbackStatus.New,
+                ToStatus = FeedbackStatus.Submitted,
                 ChangedByUserId = requestingUserId,
                 Reason = "Feedback unassigned and returned to the triage queue."
             });

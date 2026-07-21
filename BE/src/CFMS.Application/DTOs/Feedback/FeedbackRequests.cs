@@ -34,6 +34,12 @@ public class ChangeFeedbackStatusRequest
     public string? Reason { get; set; }
 }
 
+/// <summary>Dữ liệu xác nhận của Manager khi đóng một phản hồi đã RESOLVED.</summary>
+public class CloseFeedbackRequest
+{
+    public string Reason { get; set; } = string.Empty;
+}
+
 public class FeedbackFilterRequest
 {
     public FeedbackStatus? Status { get; set; }

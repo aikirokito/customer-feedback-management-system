@@ -133,7 +133,7 @@ public class FeedbackServiceTests
     }
 
     [Fact]
-    public async Task ChangeStatus_WhenResolvedFeedbackIsReopened_ClearsResolvedTimestamp()
+    public async Task ChangeStatus_WhenResolvedFeedbackIsReopened_RejectsInvalidTransition()
     {
         var staff = new User
         {
@@ -189,16 +189,14 @@ public class FeedbackServiceTests
             auditLogs.Object,
             Mock.Of<ISupabaseStorageService>());
 
-        await service.ChangeStatusAsync(feedback.Id, new ChangeFeedbackStatusRequest
+        var action = () => service.ChangeStatusAsync(feedback.Id, new ChangeFeedbackStatusRequest
         {
             NewStatus = FeedbackStatus.InProgress
         }, staff.Id);
 
-        feedback.Status.Should().Be(FeedbackStatus.InProgress);
-        feedback.ResolvedAtUtc.Should().BeNull();
-        feedback.StatusHistory.Should().ContainSingle(entry =>
-            entry.FromStatus == FeedbackStatus.Resolved &&
-            entry.ToStatus == FeedbackStatus.InProgress);
+        await action.Should().ThrowAsync<BusinessRuleException>()
+            .WithMessage("*Resolved*InProgress*");
+        feedback.Status.Should().Be(FeedbackStatus.Resolved);
     }
 
     [Fact]

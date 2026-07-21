@@ -5,17 +5,16 @@ import userApi from '../api/userApi';
 import { useAuth } from '../context/AuthContext';
 
 const isClosed = (status) => status === 'Closed';
-const isConversationLocked = (status) => status === 'Closed' || status === 'Rejected';
+const isConversationLocked = (status) => status === 'Closed' || status === 'Cancelled';
 
 // Status lifecycle map — backend enforced, FE mirrors for UX
 const STATUS_TRANSITIONS = {
-  New: ['Assigned', 'Rejected'],
-  Assigned: ['InProgress', 'Rejected'],
-  InProgress: ['WaitingForCustomer', 'Resolved', 'Rejected'],
-  WaitingForCustomer: ['InProgress', 'Resolved', 'Closed'],
-  Resolved: ['Closed', 'InProgress'],
-  Rejected: ['Closed'],
+  Submitted: ['Assigned', 'Cancelled'],
+  Assigned: ['InProgress'],
+  InProgress: ['Resolved'],
+  Resolved: ['Closed'],
   Closed: [],
+  Cancelled: [],
 };
 
 const PRIORITIES = ['Low', 'Medium', 'High', 'Urgent'];
@@ -127,7 +126,7 @@ const FeedbackDetailPage = () => {
 
   const handleStatusChange = async () => {
     if (!nextStatus) return;
-    if ((nextStatus === 'Rejected' || nextStatus === 'Closed') && !statusReason.trim()) {
+    if (nextStatus === 'Closed' && !statusReason.trim()) {
       showWfMessage('Vui lòng nhập lý do khi từ chối hoặc đóng phản hồi.', 'error');
       return;
     }
@@ -187,7 +186,7 @@ const FeedbackDetailPage = () => {
     setAssignLoading(true);
     try {
       await feedbackApi.unassignFeedback(id);
-      showWfMessage('Đã gỡ phân công và đưa phiếu về trạng thái New.');
+      showWfMessage('Đã gỡ phân công và đưa phiếu về trạng thái Submitted.');
       await fetchDetail();
     } catch (err) {
       showWfMessage('Lỗi: ' + (err.normalizedMessage || err.message), 'error');
@@ -261,7 +260,7 @@ const FeedbackDetailPage = () => {
   const handleDeleteFeedback = async () => {
     if (!window.confirm(`Xóa phản hồi "${feedback.title}"?`)) return;
     try {
-      await feedbackApi.deleteFeedback(id);
+      await feedbackApi.cancelFeedback(id);
       navigate(isAdmin ? '/assigned-feedbacks' : '/my-feedbacks', { replace: true });
     } catch (err) {
       showWfMessage('Lỗi: ' + (err.normalizedMessage || err.message), 'error');
@@ -293,10 +292,10 @@ const FeedbackDetailPage = () => {
   if (!feedback) return <div className="empty-state">Phản hồi không tồn tại</div>;
 
   const availableStatuses = (STATUS_TRANSITIONS[feedback.status] || []).filter((status) => status !== 'Assigned');
-  const needsReason = nextStatus === 'Rejected' || nextStatus === 'Closed';
+  const needsReason = nextStatus === 'Closed';
   const canRate = !isStaff && ['Resolved', 'Closed'].includes(feedback.status);
   const isAdmin = hasRole('SystemAdmin');
-  const canDeleteFeedback = isAdmin || (!isStaff && feedback.status === 'New');
+  const canDeleteFeedback = !isStaff && feedback.status === 'Submitted';
   const renderComment = (comment, depth = 0) => {
     const canModify = isAdmin || (!isConversationLocked(feedback.status) && comment.authorUserId === user?.id);
     return (

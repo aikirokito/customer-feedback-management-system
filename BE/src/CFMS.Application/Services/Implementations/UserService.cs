@@ -247,7 +247,7 @@ public class UserService : IUserService
         var hasActiveAssignments = await _unitOfWork.Feedbacks.AnyAsync(
             feedback => feedback.AssignedToUserId == userId &&
                         feedback.Status != FeedbackStatus.Resolved &&
-                        feedback.Status != FeedbackStatus.Rejected &&
+                        feedback.Status != FeedbackStatus.Cancelled &&
                         feedback.Status != FeedbackStatus.Closed,
             ct);
 

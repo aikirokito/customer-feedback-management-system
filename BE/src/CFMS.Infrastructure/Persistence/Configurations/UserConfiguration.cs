@@ -12,10 +12,10 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         {
             table.HasCheckConstraint(
                 "CK_users_Role_Valid",
-                "\"Role\" IN ('Customer', 'SupportStaff', 'DepartmentManager', 'SystemAdmin')");
+                "[Role] IN ('Customer', 'SupportStaff', 'DepartmentManager', 'SystemAdmin')");
             table.HasCheckConstraint(
                 "CK_users_Status_Valid",
-                "\"Status\" IN ('Active', 'Disabled')");
+                "[Status] IN ('Active', 'Disabled')");
         });
 
         builder.HasKey(u => u.Id);
@@ -34,7 +34,7 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(u => u.GoogleSubject).HasMaxLength(256);
         // Partial unique index on GoogleSubject (only where not null) — handled via migration SQL
         builder.HasIndex(u => u.GoogleSubject)
-            .HasFilter("\"GoogleSubject\" IS NOT NULL")
+            .HasFilter("[GoogleSubject] IS NOT NULL")
             .IsUnique();
 
         // Role stored as string for readability in the DB

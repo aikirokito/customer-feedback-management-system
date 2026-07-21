@@ -12,13 +12,13 @@ public class FeedbackConfiguration : IEntityTypeConfiguration<Feedback>
         {
             table.HasCheckConstraint(
                 "CK_feedbacks_Rating_Range",
-                "\"Rating\" IS NULL OR \"Rating\" BETWEEN 1 AND 5");
+                "[Rating] IS NULL OR [Rating] BETWEEN 1 AND 5");
             table.HasCheckConstraint(
                 "CK_feedbacks_Status_Valid",
-                "\"Status\" IN ('New', 'Assigned', 'InProgress', 'WaitingForCustomer', 'Resolved', 'Rejected', 'Closed')");
+                "[Status] IN ('Submitted', 'Assigned', 'InProgress', 'Resolved', 'Closed', 'Cancelled')");
             table.HasCheckConstraint(
                 "CK_feedbacks_Priority_Valid",
-                "\"Priority\" IN ('Low', 'Medium', 'High', 'Urgent')");
+                "[Priority] IN ('Low', 'Medium', 'High', 'Urgent')");
         });
 
         builder.HasKey(f => f.Id);

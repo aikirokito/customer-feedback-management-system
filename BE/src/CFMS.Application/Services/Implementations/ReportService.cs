@@ -43,10 +43,9 @@ public class ReportService : IReportService
         {
             TotalFeedbacks = feedbacks.Count,
             OpenFeedbacks = feedbacks.Count(f => f.Status is
-                FeedbackStatus.New or
+                FeedbackStatus.Submitted or
                 FeedbackStatus.Assigned or
-                FeedbackStatus.InProgress or
-                FeedbackStatus.WaitingForCustomer),
+                FeedbackStatus.InProgress),
             ResolvedFeedbacks = feedbacks.Count(f => f.Status == FeedbackStatus.Resolved),
             ClosedFeedbacks = feedbacks.Count(f => f.Status == FeedbackStatus.Closed),
             AverageResolutionTimeHours = resolvedOrClosed.Count == 0 ? 0 : resolvedOrClosed.Average(),
@@ -54,7 +53,7 @@ public class ReportService : IReportService
             ResolutionRate = feedbacks.Count == 0 ? 0 : resolvedCount * 100d / feedbacks.Count,
             UnresolvedHighPriorityCount = feedbacks.Count(f =>
                 f.Priority is FeedbackPriority.High or FeedbackPriority.Urgent &&
-                f.Status is not (FeedbackStatus.Resolved or FeedbackStatus.Closed or FeedbackStatus.Rejected)),
+                f.Status is not (FeedbackStatus.Resolved or FeedbackStatus.Closed or FeedbackStatus.Cancelled)),
             ByCategory = feedbacks.GroupBy(f => f.Category?.Name ?? "Uncategorized").ToDictionary(g => g.Key, g => g.Count()),
             ByStatus = feedbacks.GroupBy(f => f.Status.ToString()).ToDictionary(g => g.Key, g => g.Count()),
             ByPriority = feedbacks.GroupBy(f => f.Priority.ToString()).ToDictionary(g => g.Key, g => g.Count())

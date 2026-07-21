@@ -94,11 +94,11 @@ public class FeedbackAssignmentServiceTests
         await service.UnassignFeedbackAsync(feedback.Id, admin.Id);
 
         feedback.AssignedToUserId.Should().BeNull();
-        feedback.Status.Should().Be(FeedbackStatus.New);
+        feedback.Status.Should().Be(FeedbackStatus.Submitted);
         activeAssignment.IsActive.Should().BeFalse();
         feedback.StatusHistory.Should().ContainSingle(entry =>
             entry.FromStatus == FeedbackStatus.InProgress &&
-            entry.ToStatus == FeedbackStatus.New &&
+            entry.ToStatus == FeedbackStatus.Submitted &&
             entry.ChangedByUserId == admin.Id);
 
         await service.AssignFeedbackAsync(new AssignFeedbackRequest
@@ -121,7 +121,7 @@ public class FeedbackAssignmentServiceTests
         {
             Id = Guid.NewGuid(),
             SubmittedByUserId = Guid.NewGuid(),
-            Status = FeedbackStatus.New
+            Status = FeedbackStatus.Submitted
         };
         _feedbacks.Setup(x => x.GetByIdWithDetailsAsync(feedback.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(feedback);
@@ -142,7 +142,7 @@ public class FeedbackAssignmentServiceTests
         {
             Id = Guid.NewGuid(),
             SubmittedByUserId = customer.Id,
-            Status = FeedbackStatus.New
+            Status = FeedbackStatus.Submitted
         };
         _feedbacks.Setup(repository => repository.GetByIdWithDetailsAsync(feedback.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(feedback);

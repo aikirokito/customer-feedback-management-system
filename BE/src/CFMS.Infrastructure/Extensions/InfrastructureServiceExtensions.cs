@@ -18,11 +18,11 @@ public static class InfrastructureServiceExtensions
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        // Database
+        // SQL Server 2022 theo baseline của dự án.
         services.AddDbContext<AppDbContext>(options =>
-            options.UseNpgsql(
+            options.UseSqlServer(
                 configuration.GetConnectionString("DefaultConnection"),
-                npgsql => npgsql.MigrationsAssembly(typeof(AppDbContext).Assembly.GetName().Name)));
+                sqlServer => sqlServer.MigrationsAssembly(typeof(AppDbContext).Assembly.GetName().Name)));
 
         // Unit of Work
         services.AddScoped<IUnitOfWork, UnitOfWork.UnitOfWork>();
