@@ -57,7 +57,7 @@ public class ChangeFeedbackStatusRequestValidator : AbstractValidator<ChangeFeed
         RuleFor(x => x.NewStatus).IsInEnum().WithMessage("Invalid feedback status.");
         RuleFor(x => x.Reason)
             .NotEmpty().When(x => CFMS.Domain.Rules.FeedbackStatusRules.RequiresReason(x.NewStatus))
-            .WithMessage("A reason is required when feedback is Rejected or Closed.")
+            .WithMessage("A reason is required when feedback is Closed.")
             .MaximumLength(500);
     }
 }

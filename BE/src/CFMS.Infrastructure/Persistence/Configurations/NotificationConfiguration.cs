@@ -12,7 +12,7 @@ public class NotificationConfiguration : IEntityTypeConfiguration<Notification>
         {
             table.HasCheckConstraint(
                 "CK_notifications_Type_Valid",
-                "\"Type\" IN ('FeedbackSubmitted', 'FeedbackAssigned', 'FeedbackStatusChanged', 'FeedbackResponseAdded', 'FeedbackCommentAdded', 'FeedbackResolved', 'FeedbackRejected', 'FeedbackClosed', 'SystemAlert')");
+                "[Type] IN ('FeedbackSubmitted', 'FeedbackAssigned', 'FeedbackStatusChanged', 'FeedbackResponseAdded', 'FeedbackCommentAdded', 'FeedbackResolved', 'FeedbackRejected', 'FeedbackClosed', 'SystemAlert')");
         });
         builder.HasKey(n => n.Id);
         builder.Property(n => n.Title).IsRequired().HasMaxLength(200);

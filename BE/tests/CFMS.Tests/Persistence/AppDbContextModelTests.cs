@@ -33,7 +33,7 @@ public class AppDbContextModelTests
             candidate.Properties.Count == 1 && candidate.Properties[0] == feedbackId);
 
         index.IsUnique.Should().BeTrue();
-        index.GetFilter().Should().Be("\"IsActive\" = TRUE");
+        index.GetFilter().Should().Be("[IsActive] = 1");
     }
 
     [Fact]

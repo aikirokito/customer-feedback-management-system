@@ -34,7 +34,7 @@ public class FeedbackCommentService : IFeedbackCommentService
         var author = await GetUserAsync(authorUserId, ct);
         EnsureCanComment(author, feedback, authorUserId);
 
-        if (feedback.Status is FeedbackStatus.Closed or FeedbackStatus.Rejected)
+        if (feedback.Status is FeedbackStatus.Closed or FeedbackStatus.Cancelled)
         {
             throw new BusinessRuleException("Comments cannot be added to closed or rejected feedback.");
         }
@@ -93,7 +93,7 @@ public class FeedbackCommentService : IFeedbackCommentService
         var user = await GetUserAsync(requestingUserId, ct);
         EnsureCanComment(user, comment.Feedback, requestingUserId);
 
-        if (user.Role != UserRole.SystemAdmin && comment.Feedback.Status is FeedbackStatus.Closed or FeedbackStatus.Rejected)
+        if (user.Role != UserRole.SystemAdmin && comment.Feedback.Status is FeedbackStatus.Closed or FeedbackStatus.Cancelled)
         {
             throw new BusinessRuleException("Comments on closed or rejected feedback cannot be changed.");
         }
@@ -124,7 +124,7 @@ public class FeedbackCommentService : IFeedbackCommentService
         var user = await GetUserAsync(requestingUserId, ct);
         EnsureCanComment(user, comment.Feedback, requestingUserId);
 
-        if (user.Role != UserRole.SystemAdmin && comment.Feedback.Status is FeedbackStatus.Closed or FeedbackStatus.Rejected)
+        if (user.Role != UserRole.SystemAdmin && comment.Feedback.Status is FeedbackStatus.Closed or FeedbackStatus.Cancelled)
         {
             throw new BusinessRuleException("Comments on closed or rejected feedback cannot be deleted.");
         }

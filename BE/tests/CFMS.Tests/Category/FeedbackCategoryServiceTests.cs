@@ -260,10 +260,10 @@ public class FeedbackCategorySubmissionTests
         savedFeedback!.CategoryId.Should().Be(category.Id);
         savedFeedback.Category.Should().BeSameAs(category);
         savedFeedback.DepartmentId.Should().Be(category.DepartmentId);
-        savedFeedback.Status.Should().Be(FeedbackStatus.New);
+        savedFeedback.Status.Should().Be(FeedbackStatus.Submitted);
         savedFeedback.Priority.Should().Be(FeedbackPriority.Medium);
         savedFeedback.StatusHistory.Should().ContainSingle(x =>
-            x.FromStatus == FeedbackStatus.New && x.ToStatus == FeedbackStatus.New);
+            x.FromStatus == FeedbackStatus.Submitted && x.ToStatus == FeedbackStatus.Submitted);
     }
 
     private FeedbackService CreateService()

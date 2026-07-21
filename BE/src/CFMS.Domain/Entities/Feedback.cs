@@ -20,7 +20,7 @@ public class Feedback : SoftDeletableEntity
 
     public Guid? DepartmentId { get; set; }
 
-    public FeedbackStatus Status { get; set; } = FeedbackStatus.New;
+    public FeedbackStatus Status { get; set; } = FeedbackStatus.Submitted;
 
     public FeedbackPriority Priority { get; set; } = FeedbackPriority.Medium;
 

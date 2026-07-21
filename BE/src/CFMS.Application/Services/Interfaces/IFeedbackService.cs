@@ -12,6 +12,7 @@ public interface IFeedbackService
     Task<FeedbackDetailDto> UpdatePriorityAsync(Guid id, UpdateFeedbackPriorityRequest request, Guid requestingUserId, CancellationToken ct = default);
     Task<FeedbackDetailDto> RateFeedbackAsync(Guid id, RateFeedbackRequest request, Guid requestingUserId, CancellationToken ct = default);
     Task ChangeStatusAsync(Guid id, ChangeFeedbackStatusRequest request, Guid requestingUserId, CancellationToken ct = default);
+    Task CancelFeedbackAsync(Guid id, Guid customerId, CancellationToken ct = default);
     Task DeleteFeedbackAsync(Guid id, Guid requestingUserId, CancellationToken ct = default);
     Task<FeedbackAttachmentDto> UploadAttachmentAsync(Guid feedbackId, UploadedFileInput file, Guid uploadedByUserId, CancellationToken ct = default);
     Task DeleteAttachmentAsync(Guid feedbackId, Guid attachmentId, Guid requestingUserId, CancellationToken ct = default);

@@ -12,12 +12,12 @@ const priorityBadge = (priority) => {
 
 const statusBadge = (status) => {
   switch (status) {
-    case 'New': return 'info';
+    case 'Submitted': return 'info';
     case 'Assigned': return 'primary';
     case 'InProgress': return 'warning';
     case 'Resolved': return 'success';
     case 'Closed': return 'gray';
-    case 'Rejected': return 'danger';
+    case 'Cancelled': return 'danger';
     default: return 'primary';
   }
 };
@@ -62,7 +62,7 @@ const DashboardPage = () => {
 
         const allItems = allFeedRes.data || [];
         const total = allItems.length;
-        const pending = allItems.filter(f => !['Resolved', 'Closed', 'Rejected'].includes(f.status)).length;
+        const pending = allItems.filter(f => !['Resolved', 'Closed', 'Cancelled'].includes(f.status)).length;
         const resolved = allItems.filter(f => ['Resolved', 'Closed'].includes(f.status)).length;
 
         setStats({ total, pending, resolved, avgTime: null });
@@ -77,7 +77,7 @@ const DashboardPage = () => {
 
         const allItems = allFeedRes.data || [];
         const total = allItems.length;
-        const pending = allItems.filter(f => !['Resolved', 'Closed', 'Rejected'].includes(f.status)).length;
+        const pending = allItems.filter(f => !['Resolved', 'Closed', 'Cancelled'].includes(f.status)).length;
         const resolved = allItems.filter(f => ['Resolved', 'Closed'].includes(f.status)).length;
 
         setStats({ total, pending, resolved, avgTime: null });

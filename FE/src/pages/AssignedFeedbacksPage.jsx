@@ -12,12 +12,12 @@ const priorityBadge = (priority) => {
 
 const statusBadge = (status) => {
   switch (status) {
-    case 'New': return 'info';
+    case 'Submitted': return 'info';
     case 'Assigned': return 'primary';
     case 'InProgress': return 'warning';
     case 'Resolved': return 'success';
     case 'Closed': return 'gray';
-    case 'Rejected': return 'danger';
+    case 'Cancelled': return 'danger';
     default: return 'primary';
   }
 };
@@ -110,7 +110,7 @@ const AssignedFeedbacksPage = () => {
   };
 
   const canAssign = (item) => {
-    return isManager && (item.status === 'New' || !item.assignedToUserName);
+    return isManager && (item.status === 'Submitted' || !item.assignedToUserName);
   };
 
   return (
@@ -142,12 +142,11 @@ const AssignedFeedbacksPage = () => {
                 onChange={e => { setStatusFilter(e.target.value); setPage(1); }}
               >
                 <option value="">Tất cả</option>
-                <option value="New">New</option>
+                <option value="Submitted">Submitted</option>
                 <option value="Assigned">Assigned</option>
                 <option value="InProgress">InProgress</option>
-                <option value="WaitingForCustomer">WaitingForCustomer</option>
                 <option value="Resolved">Resolved</option>
-                <option value="Rejected">Rejected</option>
+                <option value="Cancelled">Cancelled</option>
                 <option value="Closed">Closed</option>
               </select>
             </div>

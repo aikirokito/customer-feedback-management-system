@@ -59,7 +59,7 @@ public class FeedbackController : BaseController
     }
 
     [HttpPut("{id:guid}")]
-    [Authorize(Roles = $"{RoleNames.SupportStaff},{RoleNames.DepartmentManager},{RoleNames.SystemAdmin}")]
+    [Authorize(Roles = $"{RoleNames.Customer},{RoleNames.SupportStaff},{RoleNames.DepartmentManager},{RoleNames.SystemAdmin}")]
     [ProducesResponseType(200)]
     [ProducesResponseType(400)]
     [ProducesResponseType(403)]
@@ -76,6 +76,66 @@ public class FeedbackController : BaseController
     public async Task<IActionResult> ChangeStatus([FromRoute] Guid id, [FromBody] ChangeFeedbackStatusRequest request, CancellationToken ct)
     {
         await _feedbackService.ChangeStatusAsync(id, request, CurrentUserId, ct);
+        return NoContentResponse();
+    }
+
+    /// <summary>Danh sách phản hồi được giao cho Staff đang đăng nhập.</summary>
+    [HttpGet("~/api/staff/feedback")]
+    [Authorize(Roles = RoleNames.SupportStaff)]
+    public async Task<IActionResult> GetAssignedFeedback([FromQuery] FeedbackFilterRequest filter, CancellationToken ct)
+    {
+        var result = await _feedbackService.GetFeedbacksAsync(filter, CurrentUserId, ct);
+        return OkResponse(result);
+    }
+
+    /// <summary>Manager xem, tìm kiếm và lọc toàn bộ phản hồi thuộc phạm vi quản lý.</summary>
+    [HttpGet("~/api/manager/feedback")]
+    [Authorize(Roles = RoleNames.DepartmentManager)]
+    public async Task<IActionResult> GetManagerFeedback([FromQuery] FeedbackFilterRequest filter, CancellationToken ct)
+    {
+        var result = await _feedbackService.GetFeedbacksAsync(filter, CurrentUserId, ct);
+        return OkResponse(result);
+    }
+
+    /// <summary>Customer hủy phản hồi của mình khi phản hồi vẫn còn SUBMITTED.</summary>
+    [HttpPatch("{id:guid}/cancel")]
+    [Authorize(Roles = RoleNames.Customer)]
+    [ProducesResponseType(204)]
+    [ProducesResponseType(400)]
+    [ProducesResponseType(403)]
+    public async Task<IActionResult> CancelFeedback([FromRoute] Guid id, CancellationToken ct)
+    {
+        await _feedbackService.CancelFeedbackAsync(id, CurrentUserId, ct);
+        return NoContentResponse();
+    }
+
+    /// <summary>Staff bắt đầu xử lý phản hồi đã được giao: ASSIGNED → IN_PROGRESS.</summary>
+    [HttpPatch("~/api/staff/feedback/{id:guid}/start")]
+    [Authorize(Roles = RoleNames.SupportStaff)]
+    public async Task<IActionResult> StartProcessing([FromRoute] Guid id, CancellationToken ct)
+    {
+        await _feedbackService.ChangeStatusAsync(id,
+            new ChangeFeedbackStatusRequest { NewStatus = CFMS.Domain.Enums.FeedbackStatus.InProgress }, CurrentUserId, ct);
+        return NoContentResponse();
+    }
+
+    /// <summary>Staff đánh dấu đã giải quyết: IN_PROGRESS → RESOLVED.</summary>
+    [HttpPatch("~/api/staff/feedback/{id:guid}/resolve")]
+    [Authorize(Roles = RoleNames.SupportStaff)]
+    public async Task<IActionResult> ResolveFeedback([FromRoute] Guid id, CancellationToken ct)
+    {
+        await _feedbackService.ChangeStatusAsync(id,
+            new ChangeFeedbackStatusRequest { NewStatus = CFMS.Domain.Enums.FeedbackStatus.Resolved }, CurrentUserId, ct);
+        return NoContentResponse();
+    }
+
+    /// <summary>Manager xác minh và đóng phản hồi đã giải quyết.</summary>
+    [HttpPatch("~/api/manager/feedback/{id:guid}/close")]
+    [Authorize(Roles = RoleNames.DepartmentManager)]
+    public async Task<IActionResult> CloseFeedback([FromRoute] Guid id, [FromBody] CloseFeedbackRequest request, CancellationToken ct)
+    {
+        await _feedbackService.ChangeStatusAsync(id,
+            new ChangeFeedbackStatusRequest { NewStatus = CFMS.Domain.Enums.FeedbackStatus.Closed, Reason = request.Reason }, CurrentUserId, ct);
         return NoContentResponse();
     }
 
