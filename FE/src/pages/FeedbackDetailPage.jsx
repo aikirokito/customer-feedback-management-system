@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import feedbackApi from '../api/feedbackApi';
 import userApi from '../api/userApi';
 import { useAuth } from '../context/AuthContext';
+import { validateFeedbackContent } from '../utils/feedbackValidation';
 
 const isClosed = (status) => status === 'Closed';
 const isConversationLocked = (status) => status === 'Closed' || status === 'Cancelled';
@@ -40,6 +41,7 @@ const FeedbackDetailPage = () => {
   const [categories, setCategories] = useState([]);
   const [editingFeedback, setEditingFeedback] = useState(false);
   const [editForm, setEditForm] = useState({ title: '', description: '', categoryId: '', priority: 'Medium' });
+  const [editErrors, setEditErrors] = useState({});
   const [editLoading, setEditLoading] = useState(false);
 
   // Workflow state
@@ -269,11 +271,18 @@ const FeedbackDetailPage = () => {
 
   const handleEditFeedback = async (event) => {
     event.preventDefault();
+    const validation = validateFeedbackContent(editForm);
+    setEditErrors(validation.errors);
+
+    if (Object.keys(validation.errors).length > 0) {
+      return;
+    }
+
     setEditLoading(true);
     try {
       await feedbackApi.updateFeedback(id, {
-        title: editForm.title.trim(),
-        description: editForm.description.trim(),
+        title: validation.values.title,
+        description: validation.values.description,
         categoryId: editForm.categoryId,
         priority: editForm.priority,
       });
@@ -400,11 +409,19 @@ const FeedbackDetailPage = () => {
 
           <div style={{ padding: '1rem 1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             <div>
-              <button className="btn btn-secondary" type="button" onClick={() => setEditingFeedback((value) => !value)}>{editingFeedback ? 'Hủy chỉnh sửa' : 'Chỉnh sửa nội dung'}</button>
+              <button className="btn btn-secondary" type="button" onClick={() => { setEditingFeedback((value) => !value); setEditErrors({}); }}>{editingFeedback ? 'Hủy chỉnh sửa' : 'Chỉnh sửa nội dung'}</button>
               {editingFeedback && (
                 <form onSubmit={handleEditFeedback} style={{ marginTop: '1rem' }}>
-                  <div className="form-group"><label className="form-label">Tiêu đề</label><input className="form-control" maxLength={200} required value={editForm.title} onChange={(event) => setEditForm({ ...editForm, title: event.target.value })} /></div>
-                  <div className="form-group"><label className="form-label">Nội dung</label><textarea className="form-control" maxLength={5000} required value={editForm.description} onChange={(event) => setEditForm({ ...editForm, description: event.target.value })} /></div>
+                  <div className="form-group">
+                    <label className="form-label" htmlFor="edit-feedback-title">Tiêu đề</label>
+                    <input id="edit-feedback-title" className="form-control" required value={editForm.title} onChange={(event) => { setEditForm({ ...editForm, title: event.target.value }); setEditErrors((current) => ({ ...current, title: '' })); }} aria-invalid={Boolean(editErrors.title)} aria-describedby={editErrors.title ? 'edit-feedback-title-error' : undefined} />
+                    {editErrors.title && <small id="edit-feedback-title-error" className="text-danger">{editErrors.title}</small>}
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label" htmlFor="edit-feedback-description">Nội dung</label>
+                    <textarea id="edit-feedback-description" className="form-control" required value={editForm.description} onChange={(event) => { setEditForm({ ...editForm, description: event.target.value }); setEditErrors((current) => ({ ...current, description: '' })); }} aria-invalid={Boolean(editErrors.description)} aria-describedby={editErrors.description ? 'edit-feedback-description-error' : undefined} />
+                    {editErrors.description && <small id="edit-feedback-description-error" className="text-danger">{editErrors.description}</small>}
+                  </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                     <div className="form-group"><label className="form-label">Danh mục</label><select className="form-control" required value={editForm.categoryId} onChange={(event) => setEditForm({ ...editForm, categoryId: event.target.value })}>{!categories.some((category) => category.id === feedback.categoryId) && <option value={feedback.categoryId}>{feedback.category}</option>}{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></div>
                     <div className="form-group"><label className="form-label">Ưu tiên</label><select className="form-control" value={editForm.priority} onChange={(event) => setEditForm({ ...editForm, priority: event.target.value })}>{PRIORITIES.map((priority) => <option key={priority} value={priority}>{priority}</option>)}</select></div>

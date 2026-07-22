@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import feedbackApi from '../api/feedbackApi';
+import { validateFeedbackContent } from '../utils/feedbackValidation';
 
 const MAX_FILES = 3;
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
@@ -17,6 +18,7 @@ const SubmitFeedbackPage = () => {
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({});
 
   useEffect(() => {
     feedbackApi.getCategories()
@@ -33,6 +35,7 @@ const SubmitFeedbackPage = () => {
 
   const handleChange = (event) => {
     setForm((current) => ({ ...current, [event.target.name]: event.target.value }));
+    setFieldErrors((current) => ({ ...current, [event.target.name]: '' }));
     setError('');
   };
 
@@ -61,7 +64,14 @@ const SubmitFeedbackPage = () => {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    if (!form.title.trim() || !form.description.trim() || !form.categoryId) {
+    const validation = validateFeedbackContent(form);
+    setFieldErrors(validation.errors);
+
+    if (Object.keys(validation.errors).length > 0) {
+      return;
+    }
+
+    if (!form.categoryId) {
       setError('Vui lòng điền đầy đủ các trường bắt buộc.');
       return;
     }
@@ -70,8 +80,8 @@ const SubmitFeedbackPage = () => {
     setError('');
     try {
       const response = await feedbackApi.submitFeedback({
-        title: form.title.trim(),
-        description: form.description.trim(),
+        title: validation.values.title,
+        description: validation.values.description,
         categoryId: form.categoryId,
       });
       const feedbackId = response.data?.id;
@@ -109,11 +119,13 @@ const SubmitFeedbackPage = () => {
               name="title"
               type="text"
               className="form-control"
-              maxLength={200}
               required
               value={form.title}
               onChange={handleChange}
+              aria-invalid={Boolean(fieldErrors.title)}
+              aria-describedby={fieldErrors.title ? 'feedback-title-error' : undefined}
             />
+            {fieldErrors.title && <small id="feedback-title-error" className="text-danger">{fieldErrors.title}</small>}
           </div>
 
           <div className="form-group">
@@ -140,11 +152,13 @@ const SubmitFeedbackPage = () => {
               id="feedback-description"
               name="description"
               className="form-control"
-              maxLength={5000}
               required
               value={form.description}
               onChange={handleChange}
+              aria-invalid={Boolean(fieldErrors.description)}
+              aria-describedby={fieldErrors.description ? 'feedback-description-error' : undefined}
             />
+            {fieldErrors.description && <small id="feedback-description-error" className="text-danger">{fieldErrors.description}</small>}
           </div>
 
           <div className="form-group">
