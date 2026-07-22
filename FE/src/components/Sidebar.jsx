@@ -14,13 +14,13 @@ const navItems = [
     label: 'Dashboard',
     to: '/dashboard',
     icon: '📊',
-    roles: ['Customer', 'SupportStaff', 'DepartmentManager', 'SystemAdmin'],
+    roles: ['Customer', 'SupportStaff', 'DepartmentManager'],
   },
   {
     label: 'Thông báo',
     to: '/notifications',
     icon: '🔔',
-    roles: ['Customer', 'SupportStaff', 'DepartmentManager', 'SystemAdmin'],
+    roles: ['Customer', 'SupportStaff', 'DepartmentManager'],
   },
   {
     label: 'Gửi phản hồi',
@@ -38,13 +38,13 @@ const navItems = [
     label: 'Phản hồi được giao',
     to: '/assigned-feedbacks',
     icon: '📌',
-    roles: ['SupportStaff', 'DepartmentManager', 'SystemAdmin'],
+    roles: ['SupportStaff', 'DepartmentManager'],
   },
   {
     label: 'Báo cáo',
     to: '/reports',
     icon: '📈',
-    roles: ['DepartmentManager', 'SystemAdmin'],
+    roles: ['DepartmentManager'],
   },
   {
     label: 'Quản lý người dùng',
@@ -56,18 +56,6 @@ const navItems = [
     label: 'Quản lý danh mục',
     to: '/manage-categories',
     icon: '🗂️',
-    roles: ['SystemAdmin'],
-  },
-  {
-    label: 'Quản lý phòng ban',
-    to: '/manage-departments',
-    icon: '🏢',
-    roles: ['SystemAdmin'],
-  },
-  {
-    label: 'Nhật ký hệ thống',
-    to: '/audit-logs',
-    icon: '🔍',
     roles: ['SystemAdmin'],
   },
 ];

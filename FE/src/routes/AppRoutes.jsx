@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import ProtectedRoute from './ProtectedRoute';
 import RoleBasedRoute from './RoleBasedRoute';
+import { getDefaultRouteForRole, useAuth } from '../context/AuthContext';
 
 import LoginPage from '../pages/LoginPage';
 import RegisterPage from '../pages/RegisterPage';
@@ -11,14 +12,17 @@ import FeedbackDetailPage from '../pages/FeedbackDetailPage';
 import AssignedFeedbacksPage from '../pages/AssignedFeedbacksPage';
 import ManageUsersPage from '../pages/ManageUsersPage';
 import ReportsPage from '../pages/ReportsPage';
-import AuditLogsPage from '../pages/AuditLogsPage';
 import ManageCategoriesPage from '../pages/ManageCategoriesPage';
-import ManageDepartmentsPage from '../pages/ManageDepartmentsPage';
 import NotificationsPage from '../pages/NotificationsPage';
 import ProfilePage from '../pages/ProfilePage';
 import UnauthorizedPage from '../pages/UnauthorizedPage';
 import NotFoundPage from '../pages/NotFoundPage';
 import MainLayout from '../layouts/MainLayout';
+
+const RoleHomeRedirect = () => {
+  const { user } = useAuth();
+  return <Navigate to={getDefaultRouteForRole(user)} replace />;
+};
 
 const AppRoutes = () => {
   return (
@@ -37,10 +41,18 @@ const AppRoutes = () => {
           </ProtectedRoute>
         }
       >
-        <Route index element={<Navigate to="/dashboard" replace />} />
-        <Route path="dashboard" element={<DashboardPage />} />
+        <Route index element={<RoleHomeRedirect />} />
+        <Route path="dashboard" element={
+          <RoleBasedRoute allowedRoles={['Customer', 'SupportStaff', 'DepartmentManager']}>
+            <DashboardPage />
+          </RoleBasedRoute>
+        } />
         <Route path="profile" element={<ProfilePage />} />
-        <Route path="notifications" element={<NotificationsPage />} />
+        <Route path="notifications" element={
+          <RoleBasedRoute allowedRoles={['Customer', 'SupportStaff', 'DepartmentManager']}>
+            <NotificationsPage />
+          </RoleBasedRoute>
+        } />
 
         {/* Customer */}
         <Route path="submit-feedback" element={
@@ -54,18 +66,18 @@ const AppRoutes = () => {
           </RoleBasedRoute>
         } />
 
-        {/* Support Staff + Manager + Admin */}
+        {/* Support Staff + Manager */}
         <Route path="assigned-feedbacks" element={
-          <RoleBasedRoute allowedRoles={['SupportStaff', 'DepartmentManager', 'SystemAdmin']}>
+          <RoleBasedRoute allowedRoles={['SupportStaff', 'DepartmentManager']}>
             <AssignedFeedbacksPage />
           </RoleBasedRoute>
         } />
 
-        {/* Feedback detail – multiple roles */}
+        {/* Operational feedback detail */}
         <Route path="feedbacks/:id" element={
-          <ProtectedRoute>
+          <RoleBasedRoute allowedRoles={['Customer', 'SupportStaff', 'DepartmentManager']}>
             <FeedbackDetailPage />
-          </ProtectedRoute>
+          </RoleBasedRoute>
         } />
 
         {/* Admin only */}
@@ -79,19 +91,9 @@ const AppRoutes = () => {
             <ManageCategoriesPage />
           </RoleBasedRoute>
         } />
-        <Route path="manage-departments" element={
-          <RoleBasedRoute allowedRoles={['SystemAdmin']}>
-            <ManageDepartmentsPage />
-          </RoleBasedRoute>
-        } />
         <Route path="reports" element={
-          <RoleBasedRoute allowedRoles={['SystemAdmin', 'DepartmentManager']}>
+          <RoleBasedRoute allowedRoles={['DepartmentManager']}>
             <ReportsPage />
-          </RoleBasedRoute>
-        } />
-        <Route path="audit-logs" element={
-          <RoleBasedRoute allowedRoles={['SystemAdmin']}>
-            <AuditLogsPage />
           </RoleBasedRoute>
         } />
       </Route>
