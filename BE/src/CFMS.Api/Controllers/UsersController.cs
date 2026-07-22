@@ -41,6 +41,18 @@ public class UsersController : BaseController
         return OkResponse(result);
     }
 
+    [HttpPost("~/api/admin/users")]
+    [Authorize(Roles = RoleNames.SystemAdmin)]
+    [ProducesResponseType(typeof(UserDetailDto), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> CreateUser([FromBody] CreateUserRequest request, CancellationToken ct)
+    {
+        var result = await _userService.CreateUserAsync(request, CurrentUserId, ct);
+        return CreatedResponse("GetUserById", new { id = result.Id }, result);
+    }
+
     [HttpGet("{id:guid}", Name = "GetUserById")]
     [Authorize(Roles = RoleNames.SystemAdmin)]
     [ProducesResponseType(200)]

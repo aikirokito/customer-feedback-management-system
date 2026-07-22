@@ -1,6 +1,7 @@
 using AutoMapper;
 using CFMS.Application.Common.Exceptions;
 using CFMS.Application.Common.Interfaces;
+using CFMS.Application.DTOs.Users;
 using CFMS.Application.Services.Implementations;
 using CFMS.Application.Services.Interfaces;
 using CFMS.Domain.Entities;
@@ -18,6 +19,8 @@ public class UserServiceTests
     private readonly Mock<IRefreshTokenRepository> _refreshTokens = new();
     private readonly Mock<IFeedbackRepository> _feedbacks = new();
     private readonly Mock<IAuditLogService> _auditLogs = new();
+    private readonly Mock<IPasswordHashingService> _passwordHashing = new();
+    private readonly Mock<IMapper> _mapper = new();
 
     public UserServiceTests()
     {
@@ -37,6 +40,21 @@ public class UserServiceTests
                 It.IsAny<string?>(),
                 It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
+        _mapper.Setup(mapper => mapper.Map<UserDetailDto>(It.IsAny<object>()))
+            .Returns((object source) =>
+            {
+                var user = (CFMS.Domain.Entities.User)source;
+                return new UserDetailDto
+                {
+                    Id = user.Id,
+                    Email = user.Email,
+                    FirstName = user.FirstName,
+                    LastName = user.LastName,
+                    Role = user.Role,
+                    IsActive = user.IsActive,
+                    DepartmentId = user.DepartmentId
+                };
+            });
     }
 
     [Fact]
@@ -112,6 +130,113 @@ public class UserServiceTests
             It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
+    [Theory]
+    [InlineData(UserRole.SupportStaff)]
+    [InlineData(UserRole.DepartmentManager)]
+    public async Task CreateUser_AdminCreatesActiveSupportedRoleWithoutDepartment(UserRole role)
+    {
+        var admin = new CFMS.Domain.Entities.User
+        {
+            Id = Guid.NewGuid(),
+            Role = UserRole.SystemAdmin,
+            Status = UserStatus.Active
+        };
+        CFMS.Domain.Entities.User? savedUser = null;
+        _users.Setup(repository => repository.GetByIdAsync(admin.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(admin);
+        _users.Setup(repository => repository.IsEmailTakenAsync(
+                "new.user@example.com", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _passwordHashing.Setup(service => service.HashPassword("Password1!"))
+            .Returns("hashed-password");
+        _users.Setup(repository => repository.AddAsync(
+                It.IsAny<CFMS.Domain.Entities.User>(), It.IsAny<CancellationToken>()))
+            .Callback<CFMS.Domain.Entities.User, CancellationToken>((user, _) => savedUser = user)
+            .Returns(Task.CompletedTask);
+
+        var result = await CreateService().CreateUserAsync(ValidCreateRequest(role), admin.Id);
+
+        savedUser.Should().NotBeNull();
+        savedUser!.Email.Should().Be("new.user@example.com");
+        savedUser.PasswordHash.Should().Be("hashed-password");
+        savedUser.FirstName.Should().Be("New");
+        savedUser.LastName.Should().Be("User");
+        savedUser.Role.Should().Be(role);
+        savedUser.Status.Should().Be(UserStatus.Active);
+        savedUser.DepartmentId.Should().BeNull();
+        result.Role.Should().Be(role);
+        result.IsActive.Should().BeTrue();
+        _unitOfWork.Verify(unit => unit.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task CreateUser_DuplicateEmailIsRejectedWithoutSaving()
+    {
+        var admin = new CFMS.Domain.Entities.User { Id = Guid.NewGuid(), Role = UserRole.SystemAdmin };
+        _users.Setup(repository => repository.GetByIdAsync(admin.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(admin);
+        _users.Setup(repository => repository.IsEmailTakenAsync(
+                "new.user@example.com", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var action = () => CreateService().CreateUserAsync(
+            ValidCreateRequest(UserRole.SupportStaff), admin.Id);
+
+        await action.Should().ThrowAsync<ConflictException>()
+            .WithMessage("*already registered*");
+        _users.Verify(repository => repository.AddAsync(
+            It.IsAny<CFMS.Domain.Entities.User>(), It.IsAny<CancellationToken>()), Times.Never);
+        _unitOfWork.Verify(unit => unit.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Theory]
+    [InlineData(UserRole.Customer)]
+    [InlineData(UserRole.SystemAdmin)]
+    public async Task CreateUser_UnsupportedRoleIsRejectedWithoutSaving(UserRole role)
+    {
+        var admin = new CFMS.Domain.Entities.User { Id = Guid.NewGuid(), Role = UserRole.SystemAdmin };
+        _users.Setup(repository => repository.GetByIdAsync(admin.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(admin);
+
+        var action = () => CreateService().CreateUserAsync(ValidCreateRequest(role), admin.Id);
+
+        await action.Should().ThrowAsync<BusinessRuleException>()
+            .WithMessage("*only Staff or Manager*");
+        _users.Verify(repository => repository.AddAsync(
+            It.IsAny<CFMS.Domain.Entities.User>(), It.IsAny<CancellationToken>()), Times.Never);
+        _unitOfWork.Verify(unit => unit.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Theory]
+    [InlineData(UserRole.Customer)]
+    [InlineData(UserRole.SupportStaff)]
+    [InlineData(UserRole.DepartmentManager)]
+    public async Task CreateUser_NonAdminActorIsRejectedWithoutSaving(UserRole actorRole)
+    {
+        var actor = new CFMS.Domain.Entities.User { Id = Guid.NewGuid(), Role = actorRole };
+        _users.Setup(repository => repository.GetByIdAsync(actor.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(actor);
+
+        var action = () => CreateService().CreateUserAsync(
+            ValidCreateRequest(UserRole.SupportStaff), actor.Id);
+
+        await action.Should().ThrowAsync<ForbiddenException>()
+            .WithMessage("*Only System Admins*");
+        _users.Verify(repository => repository.AddAsync(
+            It.IsAny<CFMS.Domain.Entities.User>(), It.IsAny<CancellationToken>()), Times.Never);
+        _unitOfWork.Verify(unit => unit.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    private static CreateUserRequest ValidCreateRequest(UserRole role) => new()
+    {
+        Email = "  NEW.USER@example.com  ",
+        Password = "Password1!",
+        ConfirmPassword = "Password1!",
+        FirstName = "  New  ",
+        LastName = "  User  ",
+        Role = role
+    };
+
     private UserService CreateService()
-        => new(_unitOfWork.Object, Mock.Of<IMapper>(), _auditLogs.Object);
+        => new(_unitOfWork.Object, _mapper.Object, _auditLogs.Object, _passwordHashing.Object);
 }

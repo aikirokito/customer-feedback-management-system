@@ -6,6 +6,7 @@ const userApi = {
   updateMyProfile: (data) => axiosClient.put('/Users/me', data),
 
   // Admin user management
+  createUser: (data) => axiosClient.post('/admin/users', data),
   updateUserRole: (id, role, departmentId = null) =>
     axiosClient.patch(`/admin/users/${id}/role`, { role, departmentId }),
   updateUserStatus: (id, isActive) => axiosClient.patch(`/admin/users/${id}/status`, { isActive }),
