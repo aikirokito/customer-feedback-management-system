@@ -405,7 +405,6 @@ public class FeedbackService : IFeedbackService
             Reason = "Cancelled by customer before assignment."
         });
 
-        _unitOfWork.Feedbacks.Update(feedback);
         await _unitOfWork.SaveChangesAsync(ct);
         await _auditLogService.LogAsync(customerId, AuditAction.StatusChange, nameof(Feedback), feedback.Id,
             FeedbackStatus.Submitted.ToString(), FeedbackStatus.Cancelled.ToString(), null, ct);
