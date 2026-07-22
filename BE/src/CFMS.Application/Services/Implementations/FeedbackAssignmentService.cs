@@ -43,19 +43,6 @@ public class FeedbackAssignmentService : IFeedbackAssignmentService
             throw new ForbiddenException("Only Department Managers or System Admins can assign feedback.");
         }
 
-        if (assigner.Role == UserRole.DepartmentManager)
-        {
-            if (!assigner.DepartmentId.HasValue)
-            {
-                throw new ForbiddenException("Department Manager must belong to a department.");
-            }
-
-            if (feedback.DepartmentId.HasValue && feedback.DepartmentId != assigner.DepartmentId)
-            {
-                throw new ForbiddenException("Department Managers can only assign feedback in their department.");
-            }
-        }
-
         if (feedback.Status is FeedbackStatus.Closed or FeedbackStatus.Cancelled or FeedbackStatus.Resolved)
         {
             throw new BusinessRuleException("Closed, rejected, or resolved feedback cannot be assigned.");
@@ -85,21 +72,6 @@ public class FeedbackAssignmentService : IFeedbackAssignmentService
         if (!assignee.IsActive)
         {
             throw new BusinessRuleException("Feedback cannot be assigned to a disabled staff account.");
-        }
-
-        if (!assignee.DepartmentId.HasValue)
-        {
-            throw new BusinessRuleException("Support Staff must belong to a department before feedback can be assigned.");
-        }
-
-        if (assigner.Role == UserRole.DepartmentManager && assignee.DepartmentId != assigner.DepartmentId)
-        {
-            throw new ForbiddenException("Department Managers can only assign feedback to staff in their department.");
-        }
-
-        if (feedback.DepartmentId.HasValue && feedback.DepartmentId != assignee.DepartmentId)
-        {
-            throw new BusinessRuleException("Feedback can only be assigned to staff in the same department.");
         }
 
         foreach (var activeAssignment in feedback.AssignmentHistory.Where(a => a.IsActive))
@@ -169,12 +141,6 @@ public class FeedbackAssignmentService : IFeedbackAssignmentService
             throw new ForbiddenException("Only Department Managers or System Admins can unassign feedback.");
         }
 
-        if (user.Role == UserRole.DepartmentManager &&
-            (!user.DepartmentId.HasValue || feedback.DepartmentId != user.DepartmentId))
-        {
-            throw new ForbiddenException("Department Managers can only unassign feedback in their department.");
-        }
-
         var previousAssigneeId = feedback.AssignedToUserId;
         if (!previousAssigneeId.HasValue)
         {
@@ -237,11 +203,6 @@ public class FeedbackAssignmentService : IFeedbackAssignmentService
             throw new ForbiddenException("Support Staff can only view assignment history for assigned feedback.");
         }
 
-        if (user.Role == UserRole.DepartmentManager &&
-            (!user.DepartmentId.HasValue || feedback.DepartmentId != user.DepartmentId))
-        {
-            throw new ForbiddenException("Department Managers can only view assignment history in their department.");
-        }
     }
 
     private async Task SafeNotifyAsync(Guid userId, NotificationType type, string title, string message, Guid? entityId, string? entityType, CancellationToken ct)

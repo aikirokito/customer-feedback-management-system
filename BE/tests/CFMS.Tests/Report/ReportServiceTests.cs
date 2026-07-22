@@ -63,7 +63,7 @@ public class ReportServiceTests
     }
 
     [Fact]
-    public async Task GetFeedbackSummary_ForManager_AppliesDepartmentScope()
+    public async Task GetFeedbackSummary_ForManager_DoesNotApplyDepartmentScope()
     {
         var managerId = Guid.NewGuid();
         var departmentId = Guid.NewGuid();
@@ -76,14 +76,14 @@ public class ReportServiceTests
             });
 
         _feedbacks.Setup(x => x.GetReportFeedbacksAsync(
-                null, null, null, null, null, departmentId, It.IsAny<CancellationToken>()))
+                null, null, null, null, null, null, It.IsAny<CancellationToken>()))
             .ReturnsAsync(Array.Empty<FeedbackEntity>());
 
         var service = new ReportService(_unitOfWork.Object, Mock.Of<IMapper>());
         await service.GetFeedbackSummaryAsync(new ReportFilterRequest(), managerId);
 
         _feedbacks.Verify(x => x.GetReportFeedbacksAsync(
-            null, null, null, null, null, departmentId, It.IsAny<CancellationToken>()), Times.Once);
+            null, null, null, null, null, null, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]

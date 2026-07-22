@@ -131,13 +131,8 @@ public class UsersController : BaseController
     [ProducesResponseType(200)]
     public async Task<IActionResult> GetSupportStaff(CancellationToken ct)
     {
-        var requestingUser = await _unitOfWork.Users.GetByIdAsync(CurrentUserId, ct);
         var users = await _unitOfWork.Users.GetByRoleAsync(UserRole.SupportStaff, ct);
         var activeUsers = users.Where(u => u.Status == Domain.Enums.UserStatus.Active);
-        if (requestingUser?.Role == UserRole.DepartmentManager)
-        {
-            activeUsers = activeUsers.Where(u => u.DepartmentId == requestingUser.DepartmentId);
-        }
         
         var dtos = activeUsers.Select(u => new UserListItemDto
         {

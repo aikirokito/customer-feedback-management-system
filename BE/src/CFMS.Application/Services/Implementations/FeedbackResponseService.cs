@@ -157,18 +157,12 @@ public class FeedbackResponseService : IFeedbackResponseService
             throw new ForbiddenException("Customers can only view responses on their own feedback.");
         if (user.Role == UserRole.SupportStaff && feedback.AssignedToUserId != userId)
             throw new ForbiddenException("Support staff can only view assigned feedback responses.");
-        if (user.Role == UserRole.DepartmentManager &&
-            (!user.DepartmentId.HasValue || feedback.DepartmentId != user.DepartmentId))
-            throw new ForbiddenException("Department Managers can only view responses in their department.");
     }
 
     private static void EnsureCanRespond(User user, Feedback feedback, Guid userId)
     {
         if (user.Role == UserRole.SupportStaff && feedback.AssignedToUserId != userId)
             throw new ForbiddenException("Support staff can only respond to assigned feedback.");
-        if (user.Role == UserRole.DepartmentManager &&
-            (!user.DepartmentId.HasValue || feedback.DepartmentId != user.DepartmentId))
-            throw new ForbiddenException("Department Managers can only respond to feedback in their department.");
         if (user.Role == UserRole.Customer)
             throw new ForbiddenException("Customers cannot create staff responses.");
     }

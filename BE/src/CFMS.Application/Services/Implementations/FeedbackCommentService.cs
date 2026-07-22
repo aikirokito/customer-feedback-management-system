@@ -165,9 +165,6 @@ public class FeedbackCommentService : IFeedbackCommentService
             throw new ForbiddenException("Customers can only comment on their own feedback.");
         if (user.Role == UserRole.SupportStaff && feedback.AssignedToUserId != userId)
             throw new ForbiddenException("Support staff can only comment on assigned feedback.");
-        if (user.Role == UserRole.DepartmentManager &&
-            (!user.DepartmentId.HasValue || feedback.DepartmentId != user.DepartmentId))
-            throw new ForbiddenException("Department Managers can only comment on feedback in their department.");
     }
 
     private async Task SafeNotifyAsync(Guid userId, NotificationType type, string title, string message, Guid? entityId, string? entityType, CancellationToken ct)

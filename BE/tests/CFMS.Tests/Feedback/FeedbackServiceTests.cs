@@ -20,7 +20,7 @@ public class FeedbackServiceTests
     [InlineData(UserRole.SupportStaff, true, true)]
     [InlineData(UserRole.SupportStaff, false, false)]
     [InlineData(UserRole.DepartmentManager, true, true)]
-    [InlineData(UserRole.DepartmentManager, false, false)]
+    [InlineData(UserRole.DepartmentManager, false, true)]
     [InlineData(UserRole.SystemAdmin, false, true)]
     public async Task GetFeedbackById_EnforcesActorScope(UserRole role, bool scopeMatches, bool shouldSucceed)
     {
@@ -69,6 +69,44 @@ public class FeedbackServiceTests
         {
             await action.Should().ThrowAsync<ForbiddenException>();
         }
+    }
+
+    [Fact]
+    public async Task GetFeedbacks_ForManager_DoesNotApplyDepartmentScope()
+    {
+        var manager = new User
+        {
+            Id = Guid.NewGuid(),
+            Role = UserRole.DepartmentManager,
+            Status = UserStatus.Active,
+            DepartmentId = Guid.NewGuid()
+        };
+        var unitOfWork = new Mock<IUnitOfWork>();
+        var feedbacks = new Mock<IFeedbackRepository>();
+        var users = new Mock<IUserRepository>();
+        var mapper = new Mock<IMapper>();
+        unitOfWork.SetupGet(unit => unit.Feedbacks).Returns(feedbacks.Object);
+        unitOfWork.SetupGet(unit => unit.Users).Returns(users.Object);
+        users.Setup(repository => repository.GetByIdAsync(manager.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(manager);
+        feedbacks.Setup(repository => repository.GetPagedAsync(
+                1, 20, null, null, null, null, null, null, null, null, null,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Array.Empty<Domain.Entities.Feedback>(), 0));
+        mapper.Setup(value => value.Map<IEnumerable<FeedbackListItemDto>>(It.IsAny<object>()))
+            .Returns(Array.Empty<FeedbackListItemDto>());
+        var service = new FeedbackService(
+            unitOfWork.Object,
+            mapper.Object,
+            Mock.Of<INotificationService>(),
+            Mock.Of<IAuditLogService>(),
+            Mock.Of<ISupabaseStorageService>());
+
+        await service.GetFeedbacksAsync(new FeedbackFilterRequest(), manager.Id);
+
+        feedbacks.Verify(repository => repository.GetPagedAsync(
+            1, 20, null, null, null, null, null, null, null, null, null,
+            It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]

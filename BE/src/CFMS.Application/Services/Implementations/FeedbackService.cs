@@ -47,9 +47,6 @@ public class FeedbackService : IFeedbackService
 
         Guid? submittedByUserId = user.Role == UserRole.Customer ? requestingUserId : null;
         Guid? assignedToUserId = user.Role == UserRole.SupportStaff ? requestingUserId : filter.AssignedToUserId;
-        Guid? departmentId = user.Role == UserRole.DepartmentManager
-            ? user.DepartmentId ?? throw new ForbiddenException("Department Manager must belong to a department.")
-            : null;
 
         var (items, totalCount) = await _unitOfWork.Feedbacks.GetPagedAsync(
             page,
@@ -59,7 +56,7 @@ public class FeedbackService : IFeedbackService
             filter.Priority,
             submittedByUserId ?? filter.SubmittedByUserId,
             assignedToUserId,
-            departmentId,
+            null,
             filter.SearchTerm,
             filter.FromDate,
             filter.ToDate,
@@ -190,7 +187,7 @@ public class FeedbackService : IFeedbackService
             throw new BusinessRuleException("Categories in disabled departments cannot be selected for feedback.");
         }
 
-        if (user.Role is not (UserRole.SystemAdmin or UserRole.Customer) && category.DepartmentId != user.DepartmentId)
+        if (user.Role == UserRole.SupportStaff && category.DepartmentId != user.DepartmentId)
         {
             throw new ForbiddenException("Staff can only move feedback within their own department.");
         }
@@ -585,11 +582,6 @@ public class FeedbackService : IFeedbackService
             throw new ForbiddenException("Support staff can only access assigned feedback.");
         }
 
-        if (user.Role == UserRole.DepartmentManager &&
-            (!user.DepartmentId.HasValue || feedback.DepartmentId != user.DepartmentId))
-        {
-            throw new ForbiddenException("Department Managers can only access feedback in their department.");
-        }
     }
 
     private static void EnsureCanHandleFeedback(User user, Feedback feedback, Guid userId)
@@ -597,12 +589,6 @@ public class FeedbackService : IFeedbackService
         if (user.Role == UserRole.SupportStaff && feedback.AssignedToUserId != userId)
         {
             throw new ForbiddenException("Support staff can only handle assigned feedback.");
-        }
-
-        if (user.Role == UserRole.DepartmentManager &&
-            (!user.DepartmentId.HasValue || feedback.DepartmentId != user.DepartmentId))
-        {
-            throw new ForbiddenException("Department Managers can only handle feedback in their department.");
         }
 
         if (user.Role == UserRole.Customer)

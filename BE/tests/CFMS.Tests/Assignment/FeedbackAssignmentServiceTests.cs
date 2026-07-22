@@ -49,6 +49,148 @@ public class FeedbackAssignmentServiceTests
             .Returns((object source) => new AssignmentDto { Id = ((FeedbackAssignment)source).Id });
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task AssignFeedback_ManagerCanAssignOrReassignAcrossDepartments(bool isReassignment)
+    {
+        var feedbackDepartmentId = Guid.NewGuid();
+        var staffDepartmentId = Guid.NewGuid();
+        var manager = new User
+        {
+            Id = Guid.NewGuid(),
+            Role = UserRole.DepartmentManager,
+            Status = UserStatus.Active,
+            DepartmentId = Guid.NewGuid()
+        };
+        var assignee = new User
+        {
+            Id = Guid.NewGuid(),
+            Role = UserRole.SupportStaff,
+            Status = UserStatus.Active,
+            DepartmentId = staffDepartmentId
+        };
+        var previousAssignment = new FeedbackAssignment
+        {
+            AssignedToUserId = Guid.NewGuid(),
+            AssignedByUserId = manager.Id,
+            IsActive = true
+        };
+        var feedback = new Domain.Entities.Feedback
+        {
+            Id = Guid.NewGuid(),
+            Title = "Cross-department assignment",
+            SubmittedByUserId = Guid.NewGuid(),
+            AssignedToUserId = isReassignment ? previousAssignment.AssignedToUserId : null,
+            DepartmentId = feedbackDepartmentId,
+            Status = isReassignment ? FeedbackStatus.Assigned : FeedbackStatus.Submitted,
+            AssignmentHistory = isReassignment
+                ? new List<FeedbackAssignment> { previousAssignment }
+                : new List<FeedbackAssignment>()
+        };
+        _feedbacks.Setup(x => x.GetByIdWithDetailsAsync(feedback.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(feedback);
+        _users.Setup(x => x.GetByIdAsync(manager.Id, It.IsAny<CancellationToken>())).ReturnsAsync(manager);
+        _users.Setup(x => x.GetByIdAsync(assignee.Id, It.IsAny<CancellationToken>())).ReturnsAsync(assignee);
+
+        await CreateService().AssignFeedbackAsync(new AssignFeedbackRequest
+        {
+            FeedbackId = feedback.Id,
+            AssignToUserId = assignee.Id
+        }, manager.Id);
+
+        feedback.AssignedToUserId.Should().Be(assignee.Id);
+        feedback.AssignmentHistory.Should().ContainSingle(assignment =>
+            assignment.IsActive && assignment.AssignedToUserId == assignee.Id);
+        if (isReassignment)
+        {
+            previousAssignment.IsActive.Should().BeFalse();
+        }
+    }
+
+    [Fact]
+    public async Task AssignFeedback_ActiveStaffWithoutDepartment_IsAllowed()
+    {
+        var manager = new User
+        {
+            Id = Guid.NewGuid(),
+            Role = UserRole.DepartmentManager,
+            Status = UserStatus.Active
+        };
+        var assignee = new User
+        {
+            Id = Guid.NewGuid(),
+            Role = UserRole.SupportStaff,
+            Status = UserStatus.Active,
+            DepartmentId = null
+        };
+        var feedback = new Domain.Entities.Feedback
+        {
+            Id = Guid.NewGuid(),
+            Title = "Assignment without department",
+            SubmittedByUserId = Guid.NewGuid(),
+            DepartmentId = Guid.NewGuid(),
+            Status = FeedbackStatus.Submitted
+        };
+        _feedbacks.Setup(x => x.GetByIdWithDetailsAsync(feedback.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(feedback);
+        _users.Setup(x => x.GetByIdAsync(manager.Id, It.IsAny<CancellationToken>())).ReturnsAsync(manager);
+        _users.Setup(x => x.GetByIdAsync(assignee.Id, It.IsAny<CancellationToken>())).ReturnsAsync(assignee);
+
+        await CreateService().AssignFeedbackAsync(new AssignFeedbackRequest
+        {
+            FeedbackId = feedback.Id,
+            AssignToUserId = assignee.Id
+        }, manager.Id);
+
+        feedback.AssignedToUserId.Should().Be(assignee.Id);
+        feedback.AssignmentHistory.Should().ContainSingle(assignment =>
+            assignment.IsActive && assignment.AssignedToUserId == assignee.Id);
+    }
+
+    [Theory]
+    [InlineData(UserRole.SupportStaff, UserStatus.Disabled, "disabled staff account")]
+    [InlineData(UserRole.Customer, UserStatus.Active, "active Support Staff")]
+    public async Task AssignFeedback_IneligibleUser_IsRejected(
+        UserRole assigneeRole,
+        UserStatus assigneeStatus,
+        string expectedMessage)
+    {
+        var manager = new User
+        {
+            Id = Guid.NewGuid(),
+            Role = UserRole.DepartmentManager,
+            Status = UserStatus.Active
+        };
+        var assignee = new User
+        {
+            Id = Guid.NewGuid(),
+            Role = assigneeRole,
+            Status = assigneeStatus
+        };
+        var feedback = new Domain.Entities.Feedback
+        {
+            Id = Guid.NewGuid(),
+            Title = "Invalid assignee",
+            SubmittedByUserId = Guid.NewGuid(),
+            Status = FeedbackStatus.Submitted
+        };
+        _feedbacks.Setup(x => x.GetByIdWithDetailsAsync(feedback.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(feedback);
+        _users.Setup(x => x.GetByIdAsync(manager.Id, It.IsAny<CancellationToken>())).ReturnsAsync(manager);
+        _users.Setup(x => x.GetByIdAsync(assignee.Id, It.IsAny<CancellationToken>())).ReturnsAsync(assignee);
+
+        var action = () => CreateService().AssignFeedbackAsync(new AssignFeedbackRequest
+        {
+            FeedbackId = feedback.Id,
+            AssignToUserId = assignee.Id
+        }, manager.Id);
+
+        await action.Should().ThrowAsync<BusinessRuleException>()
+            .WithMessage($"*{expectedMessage}*");
+        _unitOfWork.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
     [Fact]
     public async Task UnassignFeedback_ResetsWorkflowAndAllowsAssignmentAgain()
     {
