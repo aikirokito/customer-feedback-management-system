@@ -22,7 +22,6 @@ const FeedbackDetailPage = () => {
   const [replyContent, setReplyContent] = useState('');
   const [submittingReply, setSubmittingReply] = useState(false);
   const [isInternalReply, setIsInternalReply] = useState(false);
-  const [replyParentId, setReplyParentId] = useState(null);
   const [assignmentHistory, setAssignmentHistory] = useState([]);
   const [categories, setCategories] = useState([]);
   const [editingFeedback, setEditingFeedback] = useState(false);
@@ -90,13 +89,8 @@ const FeedbackDetailPage = () => {
 
     setSubmittingReply(true);
     try {
-      if (isSupportStaff) {
-        await feedbackApi.respondToFeedback(id, { content: replyContent, isInternal: isInternalReply });
-      } else {
-        await feedbackApi.addComment(id, { content: replyContent, parentCommentId: replyParentId });
-      }
+      await feedbackApi.respondToFeedback(id, { content: replyContent, isInternal: isInternalReply });
       setReplyContent('');
-      setReplyParentId(null);
       setIsInternalReply(false);
       fetchDetail();
     } catch (err) {
@@ -147,23 +141,21 @@ const FeedbackDetailPage = () => {
     }
   };
 
-  const editConversationItem = async (kind, item) => {
+  const editResponse = async (item) => {
     const content = window.prompt('Cập nhật nội dung:', item.content);
     if (!content?.trim() || content.trim() === item.content) return;
     try {
-      if (kind === 'response') await feedbackApi.updateResponse(id, item.id, content.trim());
-      else await feedbackApi.updateComment(id, item.id, content.trim());
+      await feedbackApi.updateResponse(id, item.id, content.trim());
       await fetchDetail();
     } catch (err) {
       showWfMessage('Lỗi: ' + (err.normalizedMessage || err.message), 'error');
     }
   };
 
-  const deleteConversationItem = async (kind, item) => {
+  const deleteResponse = async (item) => {
     if (!window.confirm('Xóa nội dung này?')) return;
     try {
-      if (kind === 'response') await feedbackApi.deleteResponse(id, item.id);
-      else await feedbackApi.deleteComment(id, item.id);
+      await feedbackApi.deleteResponse(id, item.id);
       await fetchDetail();
     } catch (err) {
       showWfMessage('Lỗi: ' + (err.normalizedMessage || err.message), 'error');
@@ -214,26 +206,6 @@ const FeedbackDetailPage = () => {
   const actionPolicy = getFeedbackActionPolicy(user, feedback);
   const canDeleteFeedback = actionPolicy.canCancel;
   const canEditFeedback = actionPolicy.canEdit;
-  const renderComment = (comment, depth = 0) => {
-    const canModify = actionPolicy.canComment && comment.authorUserId === user?.id;
-    return (
-      <div key={comment.id} style={{ marginLeft: Math.min(depth, 3) * 24 }}>
-        <div className="mb-4 p-3" style={{ borderLeft: '3px solid var(--success)', background: 'var(--bg-input)', borderRadius: '0 var(--radius-sm) var(--radius-sm) 0' }}>
-          <div className="flex-between mb-2" style={{ gap: '1rem' }}>
-            <span className="font-semibold">{comment.authorName || 'Người dùng'}</span>
-            <span className="text-muted" style={{ fontSize: '0.8rem' }}>{comment.createdAtUtc ? new Date(comment.createdAtUtc).toLocaleString('vi-VN') : '---'}</span>
-          </div>
-          <p className="preserve-wrap">{comment.content}</p>
-          <div className="flex gap-2" style={{ marginTop: '0.75rem' }}>
-            {actionPolicy.canComment && <button className="btn btn-sm btn-secondary" type="button" onClick={() => setReplyParentId(comment.id)}>Trả lời</button>}
-            {canModify && <button className="btn btn-sm btn-secondary" type="button" onClick={() => editConversationItem('comment', comment)}>Sửa</button>}
-            {canModify && <button className="btn btn-sm btn-danger" type="button" onClick={() => deleteConversationItem('comment', comment)}>Xóa</button>}
-          </div>
-        </div>
-        {comment.replies?.map((reply) => renderComment(reply, depth + 1))}
-      </div>
-    );
-  };
 
   return (
     <div className="feedback-detail-page">
@@ -392,10 +364,10 @@ const FeedbackDetailPage = () => {
         </div>
       )}
 
-      {/* Conversation History */}
+      {/* Official Staff responses */}
       <div className="card">
         <div className="card-header">
-          <h3 className="card-title">Lịch Sử Trao Đổi</h3>
+          <h3 className="card-title">Phản Hồi Của Nhân Viên</h3>
         </div>
         
         <div className="responses-list mb-4">
@@ -408,24 +380,21 @@ const FeedbackDetailPage = () => {
                 </span>
               </div>
               <p className="preserve-wrap">{resp.content}</p>
-              {actionPolicy.canRespond && resp.respondedByUserId === user?.id && <div className="flex gap-2" style={{ marginTop: '0.75rem' }}><button className="btn btn-sm btn-secondary" type="button" onClick={() => editConversationItem('response', resp)}>Sửa</button><button className="btn btn-sm btn-danger" type="button" onClick={() => deleteConversationItem('response', resp)}>Xóa</button></div>}
+              {actionPolicy.canRespond && resp.respondedByUserId === user?.id && <div className="flex gap-2" style={{ marginTop: '0.75rem' }}><button className="btn btn-sm btn-secondary" type="button" onClick={() => editResponse(resp)}>Sửa</button><button className="btn btn-sm btn-danger" type="button" onClick={() => deleteResponse(resp)}>Xóa</button></div>}
             </div>
           ))}
 
-          {feedback.comments?.filter((comment) => !comment.parentCommentId).map((comment) => renderComment(comment))}
-
-          {(!feedback.responses?.length && !feedback.comments?.length) && (
-            <p className="text-muted text-center italic py-4">Chưa có trao đổi nào.</p>
+          {!feedback.responses?.length && (
+            <p className="text-muted text-center italic py-4">Chưa có phản hồi nào.</p>
           )}
         </div>
 
-        {(actionPolicy.canRespond || actionPolicy.canComment) && (
+        {actionPolicy.canRespond && (
           <form onSubmit={handleReplySubmit}>
-            {replyParentId && <div className="alert alert-info mb-4">Đang trả lời một bình luận. <button type="button" className="btn btn-sm btn-secondary" onClick={() => setReplyParentId(null)}>Hủy trả lời</button></div>}
             <div className="form-group">
               <textarea
                 className="form-control"
-                placeholder={isSupportStaff ? 'Nhập nội dung phản hồi...' : 'Nhập bình luận của bạn...'}
+                placeholder="Nhập nội dung phản hồi..."
                 value={replyContent}
                 onChange={e => setReplyContent(e.target.value)}
                 rows={4}

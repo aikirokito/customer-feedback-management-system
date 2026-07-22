@@ -30,15 +30,6 @@ const feedbackApi = {
   }),
   getResponses: (id) => axiosClient.get(`/Feedback/${id}/responses`).then(asListResponse),
 
-  addComment: (id, data) => axiosClient.post(`/Feedback/${id}/comments`, {
-    content: data.content || data.message || '',
-    parentCommentId: data.parentCommentId || null,
-  }),
-  getComments: (id) => axiosClient.get(`/Feedback/${id}/comments`).then(asListResponse),
-  updateComment: (feedbackId, commentId, content) =>
-    axiosClient.put(`/Feedback/${feedbackId}/comments/${commentId}`, { content }),
-  deleteComment: (feedbackId, commentId) =>
-    axiosClient.delete(`/Feedback/${feedbackId}/comments/${commentId}`),
   updateResponse: (feedbackId, responseId, content) =>
     axiosClient.put(`/Feedback/${feedbackId}/responses/${responseId}`, { content }),
   deleteResponse: (feedbackId, responseId) =>

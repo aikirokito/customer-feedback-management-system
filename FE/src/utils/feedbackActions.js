@@ -15,7 +15,6 @@ export const getFeedbackActionPolicy = (user, feedback) => {
   return {
     canEdit: isOwner && status === 'Submitted',
     canCancel: isOwner && status === 'Submitted',
-    canComment: isOwner && status === 'Submitted',
     canStart: isAssignedStaff && status === 'Assigned',
     canRespond: isAssignedStaff && STAFF_ACTIONABLE_STATUSES.has(status),
     canResolve: isAssignedStaff && status === 'InProgress',
