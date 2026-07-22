@@ -30,7 +30,7 @@ public class ResponsesController : BaseController
     }
 
     [HttpPost]
-    [Authorize(Roles = $"{RoleNames.SupportStaff},{RoleNames.DepartmentManager},{RoleNames.SystemAdmin}")]
+    [Authorize(Roles = RoleNames.SupportStaff)]
     [ProducesResponseType(201)]
     [ProducesResponseType(400)]
     public async Task<IActionResult> CreateResponse([FromRoute] Guid feedbackId, [FromBody] CreateResponseRequest request, CancellationToken ct)
@@ -41,7 +41,7 @@ public class ResponsesController : BaseController
     }
 
     [HttpPut("{responseId:guid}")]
-    [Authorize(Roles = $"{RoleNames.SupportStaff},{RoleNames.DepartmentManager},{RoleNames.SystemAdmin}")]
+    [Authorize(Roles = RoleNames.SupportStaff)]
     [ProducesResponseType(200)]
     [ProducesResponseType(403)]
     public async Task<IActionResult> UpdateResponse([FromRoute] Guid feedbackId, [FromRoute] Guid responseId, [FromBody] UpdateResponseRequest request, CancellationToken ct)
@@ -51,7 +51,7 @@ public class ResponsesController : BaseController
     }
 
     [HttpDelete("{responseId:guid}")]
-    [Authorize(Roles = $"{RoleNames.SupportStaff},{RoleNames.DepartmentManager},{RoleNames.SystemAdmin}")]
+    [Authorize(Roles = RoleNames.SupportStaff)]
     [ProducesResponseType(204)]
     public async Task<IActionResult> DeleteResponse([FromRoute] Guid feedbackId, [FromRoute] Guid responseId, CancellationToken ct)
     {

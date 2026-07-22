@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace CFMS.Api.Controllers;
 
 /// <summary>
-/// Feedback assignment management. Manager and Admin only.
+/// Feedback assignment management. Manager operations with read-only internal history access.
 /// </summary>
 [Authorize]
 [Tags("Feedback Assignments")]
@@ -21,7 +21,7 @@ public class AssignmentsController : BaseController
     }
 
     [HttpPatch("~/api/feedback/{feedbackId:guid}/assign")]
-    [Authorize(Roles = $"{RoleNames.DepartmentManager},{RoleNames.SystemAdmin}")]
+    [Authorize(Roles = RoleNames.DepartmentManager)]
     [ProducesResponseType(200)]
     [ProducesResponseType(400)]
     public async Task<IActionResult> AssignFeedback([FromRoute] Guid feedbackId, [FromBody] AssignFeedbackRequest request, CancellationToken ct)
@@ -32,7 +32,7 @@ public class AssignmentsController : BaseController
     }
 
     [HttpPatch("~/api/feedback/{feedbackId:guid}/reassign")]
-    [Authorize(Roles = $"{RoleNames.DepartmentManager},{RoleNames.SystemAdmin}")]
+    [Authorize(Roles = RoleNames.DepartmentManager)]
     [ProducesResponseType(200)]
     public async Task<IActionResult> ReassignFeedback([FromRoute] Guid feedbackId, [FromBody] AssignFeedbackRequest request, CancellationToken ct)
     {
@@ -51,7 +51,7 @@ public class AssignmentsController : BaseController
     }
 
     [HttpDelete("~/api/feedback/{feedbackId:guid}/assignments")]
-    [Authorize(Roles = $"{RoleNames.DepartmentManager},{RoleNames.SystemAdmin}")]
+    [Authorize(Roles = RoleNames.DepartmentManager)]
     [ProducesResponseType(204)]
     public async Task<IActionResult> UnassignFeedback([FromRoute] Guid feedbackId, CancellationToken ct)
     {

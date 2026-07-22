@@ -38,9 +38,9 @@ public class FeedbackAssignmentService : IFeedbackAssignmentService
         var assigner = await _unitOfWork.Users.GetByIdAsync(assignedByUserId, ct)
             ?? throw new UnauthorizedException("Assigner was not found.");
 
-        if (assigner.Role is not (UserRole.DepartmentManager or UserRole.SystemAdmin))
+        if (assigner.Role != UserRole.DepartmentManager)
         {
-            throw new ForbiddenException("Only Department Managers or System Admins can assign feedback.");
+            throw new ForbiddenException("Only Department Managers can assign feedback.");
         }
 
         if (feedback.Status is FeedbackStatus.Closed or FeedbackStatus.Cancelled or FeedbackStatus.Resolved)
@@ -142,9 +142,9 @@ public class FeedbackAssignmentService : IFeedbackAssignmentService
         var user = await _unitOfWork.Users.GetByIdAsync(requestingUserId, ct)
             ?? throw new UnauthorizedException("User was not found.");
 
-        if (user.Role is not (UserRole.DepartmentManager or UserRole.SystemAdmin))
+        if (user.Role != UserRole.DepartmentManager)
         {
-            throw new ForbiddenException("Only Department Managers or System Admins can unassign feedback.");
+            throw new ForbiddenException("Only Department Managers can unassign feedback.");
         }
 
         var previousAssigneeId = feedback.AssignedToUserId;

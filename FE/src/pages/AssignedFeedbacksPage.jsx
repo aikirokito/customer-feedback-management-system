@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import feedbackApi from '../api/feedbackApi';
 import userApi from '../api/userApi';
 import { useAuth } from '../context/AuthContext';
+import { getAssignedListActionLabel, getFeedbackActionPolicy } from '../utils/feedbackActions';
 
 const priorityBadge = (priority) => {
   if (priority === 'Urgent' || priority === 'High') return 'danger';
@@ -23,8 +24,8 @@ const statusBadge = (status) => {
 };
 
 const AssignedFeedbacksPage = () => {
-  const { hasRole } = useAuth();
-  const isManager = hasRole(['DepartmentManager', 'SystemAdmin']);
+  const { user, hasRole } = useAuth();
+  const isManager = hasRole('DepartmentManager');
 
   const [feedbacks, setFeedbacks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -90,14 +91,19 @@ const AssignedFeedbacksPage = () => {
     setTimeout(() => setMessage({ text: '', type: '' }), 4000);
   };
 
-  const handleAssign = async (feedbackId) => {
+  const handleAssign = async (feedback) => {
     if (!selectedStaff) {
       showMessage('Vui lòng chọn nhân viên hỗ trợ.', 'error');
       return;
     }
     setAssignLoading(true);
     try {
-      await feedbackApi.assignFeedback(feedbackId, { assignToUserId: selectedStaff });
+      const assignmentRequest = { assignToUserId: selectedStaff };
+      if (feedback.status === 'Submitted') {
+        await feedbackApi.assignFeedback(feedback.id, assignmentRequest);
+      } else {
+        await feedbackApi.reassignFeedback(feedback.id, assignmentRequest);
+      }
       showMessage('Giao phản hồi thành công!');
       setAssigningId(null);
       setSelectedStaff('');
@@ -110,7 +116,8 @@ const AssignedFeedbacksPage = () => {
   };
 
   const canAssign = (item) => {
-    return isManager && (item.status === 'Submitted' || !item.assignedToUserName);
+    const policy = getFeedbackActionPolicy(user, item);
+    return policy.canAssign || policy.canReassign;
   };
 
   return (
@@ -247,7 +254,7 @@ const AssignedFeedbacksPage = () => {
                     )}
                     <td style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
                       <Link to={`/feedbacks/${item.id}`} className="btn btn-sm btn-primary">
-                        Xử lý
+                        {getAssignedListActionLabel(user?.role, item.status)}
                       </Link>
                       {canAssign(item) && assigningId !== item.id && (
                         <button
@@ -285,7 +292,7 @@ const AssignedFeedbacksPage = () => {
                           <button
                             className="btn btn-sm btn-primary"
                             disabled={assignLoading || !selectedStaff}
-                            onClick={() => handleAssign(item.id)}
+                            onClick={() => handleAssign(item)}
                           >
                             {assignLoading ? 'Đang giao...' : 'Xác nhận'}
                           </button>

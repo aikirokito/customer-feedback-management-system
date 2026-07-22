@@ -208,11 +208,13 @@ public class FeedbackService : IFeedbackService
         var feedback = await _unitOfWork.Feedbacks.GetByIdWithDetailsAsync(id, ct)
             ?? throw new NotFoundException(nameof(Feedback), id);
         var user = await GetCurrentUserAsync(requestingUserId, ct);
+        if (user.Role is not (UserRole.SupportStaff or UserRole.DepartmentManager))
+            throw new ForbiddenException("Only Staff or Managers can update feedback priority.");
         EnsureCanHandleFeedback(user, feedback, requestingUserId);
 
-        if (feedback.Status is FeedbackStatus.Closed or FeedbackStatus.Cancelled)
+        if (feedback.Status is FeedbackStatus.Resolved or FeedbackStatus.Closed or FeedbackStatus.Cancelled)
         {
-            throw new BusinessRuleException("Priority cannot be changed on closed or rejected feedback.");
+            throw new BusinessRuleException("Priority cannot be changed on read-only feedback.");
         }
 
         var oldPriority = feedback.Priority;
@@ -391,11 +393,7 @@ public class FeedbackService : IFeedbackService
             ?? throw new NotFoundException(nameof(Feedback), feedbackId);
         var user = await GetCurrentUserAsync(uploadedByUserId, ct);
         EnsureCanViewFeedback(user, feedback, uploadedByUserId);
-
-        if (feedback.Status is FeedbackStatus.Closed or FeedbackStatus.Cancelled)
-        {
-            throw new BusinessRuleException("Attachments cannot be added to closed or rejected feedback.");
-        }
+        EnsureCanModifyAttachments(user, feedback, uploadedByUserId);
 
         if (file.Length <= 0)
         {
@@ -490,15 +488,11 @@ public class FeedbackService : IFeedbackService
 
         var user = await GetCurrentUserAsync(requestingUserId, ct);
         EnsureCanViewFeedback(user, feedback, requestingUserId);
+        EnsureCanModifyAttachments(user, feedback, requestingUserId);
 
-        if (user.Role != UserRole.SystemAdmin && feedback.Status is FeedbackStatus.Closed or FeedbackStatus.Cancelled)
+        if (attachment.UploadedByUserId != requestingUserId)
         {
-            throw new BusinessRuleException("Attachments on closed or rejected feedback cannot be deleted.");
-        }
-
-        if (user.Role != UserRole.SystemAdmin && attachment.UploadedByUserId != requestingUserId)
-        {
-            throw new ForbiddenException("Only the attachment uploader or a system admin can delete this attachment.");
+            throw new ForbiddenException("Only the attachment uploader can delete this attachment.");
         }
 
         await _storageService.DeleteFileAsync(attachment.StorageKey, AttachmentBucketName, ct);
@@ -538,6 +532,29 @@ public class FeedbackService : IFeedbackService
         {
             throw new ForbiddenException("Customers cannot perform this internal workflow action.");
         }
+    }
+
+    private static void EnsureCanModifyAttachments(User user, Feedback feedback, Guid userId)
+    {
+        if (user.Role == UserRole.Customer)
+        {
+            if (feedback.SubmittedByUserId != userId)
+                throw new ForbiddenException("Customers can only modify attachments on their own feedback.");
+            if (feedback.Status != FeedbackStatus.Submitted)
+                throw new BusinessRuleException("Customer attachments can only be changed while feedback is SUBMITTED.");
+            return;
+        }
+
+        if (user.Role == UserRole.SupportStaff)
+        {
+            if (feedback.AssignedToUserId != userId)
+                throw new ForbiddenException("Support staff can only modify attachments on assigned feedback.");
+            if (feedback.Status is not (FeedbackStatus.Assigned or FeedbackStatus.InProgress))
+                throw new BusinessRuleException("Staff attachments can only be changed while feedback is ASSIGNED or IN_PROGRESS.");
+            return;
+        }
+
+        throw new ForbiddenException("Managers and Admins cannot modify feedback attachments.");
     }
 
     private async Task SafeNotifyAsync(Guid userId, NotificationType type, string title, string message, Guid? entityId, string? entityType, CancellationToken ct)

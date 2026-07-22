@@ -1,5 +1,6 @@
 using CFMS.Application.DTOs.Comments;
 using CFMS.Application.Services.Interfaces;
+using CFMS.Domain.Constants;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -29,6 +30,7 @@ public class CommentsController : BaseController
     }
 
     [HttpPost]
+    [Authorize(Roles = RoleNames.Customer)]
     [ProducesResponseType(201)]
     public async Task<IActionResult> CreateComment([FromRoute] Guid feedbackId, [FromBody] CreateCommentRequest request, CancellationToken ct)
     {
@@ -38,6 +40,7 @@ public class CommentsController : BaseController
     }
 
     [HttpPut("{commentId:guid}")]
+    [Authorize(Roles = RoleNames.Customer)]
     [ProducesResponseType(200)]
     [ProducesResponseType(403)]
     public async Task<IActionResult> UpdateComment([FromRoute] Guid feedbackId, [FromRoute] Guid commentId, [FromBody] UpdateCommentRequest request, CancellationToken ct)
@@ -47,6 +50,7 @@ public class CommentsController : BaseController
     }
 
     [HttpDelete("{commentId:guid}")]
+    [Authorize(Roles = RoleNames.Customer)]
     [ProducesResponseType(204)]
     public async Task<IActionResult> DeleteComment([FromRoute] Guid feedbackId, [FromRoute] Guid commentId, CancellationToken ct)
     {

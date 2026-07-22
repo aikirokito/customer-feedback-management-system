@@ -70,7 +70,7 @@ public class FeedbackController : BaseController
     }
 
     [HttpPatch("{id:guid}/status")]
-    [Authorize(Roles = $"{RoleNames.SupportStaff},{RoleNames.DepartmentManager},{RoleNames.SystemAdmin}")]
+    [Authorize(Roles = $"{RoleNames.SupportStaff},{RoleNames.DepartmentManager}")]
     [ProducesResponseType(204)]
     [ProducesResponseType(400)]
     public async Task<IActionResult> ChangeStatus([FromRoute] Guid id, [FromBody] ChangeFeedbackStatusRequest request, CancellationToken ct)
@@ -140,7 +140,7 @@ public class FeedbackController : BaseController
     }
 
     [HttpPatch("{id:guid}/priority")]
-    [Authorize(Roles = $"{RoleNames.SupportStaff},{RoleNames.DepartmentManager},{RoleNames.SystemAdmin}")]
+    [Authorize(Roles = $"{RoleNames.SupportStaff},{RoleNames.DepartmentManager}")]
     [ProducesResponseType(200)]
     [ProducesResponseType(400)]
     public async Task<IActionResult> UpdatePriority([FromRoute] Guid id, [FromBody] UpdateFeedbackPriorityRequest request, CancellationToken ct)

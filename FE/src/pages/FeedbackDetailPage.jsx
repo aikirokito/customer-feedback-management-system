@@ -3,27 +3,12 @@ import { useParams, useNavigate } from 'react-router-dom';
 import feedbackApi from '../api/feedbackApi';
 import userApi from '../api/userApi';
 import { useAuth } from '../context/AuthContext';
+import { getFeedbackActionPolicy } from '../utils/feedbackActions';
 import {
-  canCustomerEditFeedback,
   createFeedbackEditForm,
   formatFeedbackRating,
   validateFeedbackContent,
 } from '../utils/feedbackValidation';
-
-const isClosed = (status) => status === 'Closed';
-const isConversationLocked = (status) => status === 'Closed' || status === 'Cancelled';
-
-// Status lifecycle map — backend enforced, FE mirrors for UX
-const STATUS_TRANSITIONS = {
-  Submitted: ['Assigned', 'Cancelled'],
-  Assigned: ['InProgress'],
-  InProgress: ['Resolved'],
-  Resolved: ['Closed'],
-  Closed: [],
-  Cancelled: [],
-};
-
-const PRIORITIES = ['Low', 'Medium', 'High', 'Urgent'];
 
 const FeedbackDetailPage = () => {
   const { id } = useParams();
@@ -48,25 +33,22 @@ const FeedbackDetailPage = () => {
   const [editLoading, setEditLoading] = useState(false);
 
   // Workflow state
-  const [nextStatus, setNextStatus] = useState('');
   const [statusReason, setStatusReason] = useState('');
   const [statusLoading, setStatusLoading] = useState(false);
-  const [newPriority, setNewPriority] = useState('');
-  const [priorityLoading, setPriorityLoading] = useState(false);
   const [staffList, setStaffList] = useState([]);
   const [assignStaff, setAssignStaff] = useState('');
   const [assignLoading, setAssignLoading] = useState(false);
   const [wfMessage, setWfMessage] = useState({ text: '', type: '' });
 
-  const isStaff = hasRole(['SupportStaff', 'DepartmentManager', 'SystemAdmin']);
-  const isManager = hasRole(['DepartmentManager', 'SystemAdmin']);
+  const isSupportStaff = hasRole('SupportStaff');
+  const isManager = hasRole('DepartmentManager');
+  const isInternalViewer = hasRole(['SupportStaff', 'DepartmentManager', 'SystemAdmin']);
   const isCustomer = hasRole('Customer');
 
   const fetchDetail = useCallback(async () => {
     try {
       const res = await feedbackApi.getFeedbackById(id);
       setFeedback(res.data);
-      setNewPriority(res.data?.priority || 'Medium');
       setEditForm(createFeedbackEditForm(res.data));
       setError('');
     } catch (err) {
@@ -89,15 +71,15 @@ const FeedbackDetailPage = () => {
   }, [isManager]);
 
   useEffect(() => {
-    if (isStaff || isCustomer) {
+    if (isCustomer) {
       feedbackApi.getCategories().then((response) => setCategories(response.data || [])).catch(() => setCategories([]));
     }
-    if (isStaff) {
+    if (isInternalViewer) {
       feedbackApi.getAssignmentHistory(id)
         .then((response) => setAssignmentHistory(response.data || []))
         .catch(() => setAssignmentHistory([]));
     }
-  }, [id, isCustomer, isStaff, feedback?.assignedToUserId]);
+  }, [id, isCustomer, isInternalViewer, feedback?.assignedToUserId]);
 
   const showWfMessage = (text, type = 'success') => {
     setWfMessage({ text, type });
@@ -110,7 +92,7 @@ const FeedbackDetailPage = () => {
 
     setSubmittingReply(true);
     try {
-      if (isStaff) {
+      if (isSupportStaff) {
         await feedbackApi.respondToFeedback(id, { content: replyContent, isInternal: isInternalReply });
       } else {
         await feedbackApi.addComment(id, { content: replyContent, parentCommentId: replyParentId });
@@ -126,40 +108,24 @@ const FeedbackDetailPage = () => {
     }
   };
 
-  const handleStatusChange = async () => {
-    if (!nextStatus) return;
-    if (nextStatus === 'Closed' && !statusReason.trim()) {
+  const handleStatusChange = async (targetStatus) => {
+    if (targetStatus === 'Closed' && !statusReason.trim()) {
       showWfMessage('Vui lòng nhập lý do khi từ chối hoặc đóng phản hồi.', 'error');
       return;
     }
     setStatusLoading(true);
     try {
       await feedbackApi.updateFeedbackStatus(id, {
-        newStatus: nextStatus,
+        newStatus: targetStatus,
         reason: statusReason || null,
       });
-      showWfMessage(`Trạng thái đã cập nhật thành ${nextStatus}.`);
-      setNextStatus('');
+      showWfMessage(`Trạng thái đã cập nhật thành ${targetStatus}.`);
       setStatusReason('');
       fetchDetail();
     } catch (err) {
       showWfMessage('Lỗi: ' + (err.normalizedMessage || err.message), 'error');
     } finally {
       setStatusLoading(false);
-    }
-  };
-
-  const handlePriorityChange = async () => {
-    if (!newPriority || newPriority === feedback?.priority) return;
-    setPriorityLoading(true);
-    try {
-      await feedbackApi.managePriority(id, { priority: newPriority });
-      showWfMessage(`Mức độ ưu tiên đã cập nhật thành ${newPriority}.`);
-      fetchDetail();
-    } catch (err) {
-      showWfMessage('Lỗi: ' + (err.normalizedMessage || err.message), 'error');
-    } finally {
-      setPriorityLoading(false);
     }
   };
 
@@ -176,20 +142,6 @@ const FeedbackDetailPage = () => {
       showWfMessage(isReassign ? 'Đã chuyển giao thành công!' : 'Đã giao thành công!');
       setAssignStaff('');
       fetchDetail();
-    } catch (err) {
-      showWfMessage('Lỗi: ' + (err.normalizedMessage || err.message), 'error');
-    } finally {
-      setAssignLoading(false);
-    }
-  };
-
-  const handleUnassign = async () => {
-    if (!window.confirm('Gỡ phân công và đưa phiếu về hàng đợi mới?')) return;
-    setAssignLoading(true);
-    try {
-      await feedbackApi.unassignFeedback(id);
-      showWfMessage('Đã gỡ phân công và đưa phiếu về trạng thái Submitted.');
-      await fetchDetail();
     } catch (err) {
       showWfMessage('Lỗi: ' + (err.normalizedMessage || err.message), 'error');
     } finally {
@@ -249,7 +201,7 @@ const FeedbackDetailPage = () => {
     if (!window.confirm(`Xóa phản hồi "${feedback.title}"?`)) return;
     try {
       await feedbackApi.cancelFeedback(id);
-      navigate(isAdmin ? '/assigned-feedbacks' : '/my-feedbacks', { replace: true });
+      navigate('/my-feedbacks', { replace: true });
     } catch (err) {
       showWfMessage('Lỗi: ' + (err.normalizedMessage || err.message), 'error');
     }
@@ -286,13 +238,11 @@ const FeedbackDetailPage = () => {
   if (error) return <div className="alert alert-error m-4">{error}</div>;
   if (!feedback) return <div className="empty-state">Phản hồi không tồn tại</div>;
 
-  const availableStatuses = (STATUS_TRANSITIONS[feedback.status] || []).filter((status) => status !== 'Assigned');
-  const needsReason = nextStatus === 'Closed';
-  const isAdmin = hasRole('SystemAdmin');
-  const canDeleteFeedback = !isStaff && feedback.status === 'Submitted';
-  const canEditFeedback = canCustomerEditFeedback(user, feedback);
+  const actionPolicy = getFeedbackActionPolicy(user, feedback);
+  const canDeleteFeedback = actionPolicy.canCancel;
+  const canEditFeedback = actionPolicy.canEdit;
   const renderComment = (comment, depth = 0) => {
-    const canModify = isAdmin || (!isConversationLocked(feedback.status) && comment.authorUserId === user?.id);
+    const canModify = actionPolicy.canComment && comment.authorUserId === user?.id;
     return (
       <div key={comment.id} style={{ marginLeft: Math.min(depth, 3) * 24 }}>
         <div className="mb-4 p-3" style={{ borderLeft: '3px solid var(--success)', background: 'var(--bg-input)', borderRadius: '0 var(--radius-sm) var(--radius-sm) 0' }}>
@@ -302,7 +252,7 @@ const FeedbackDetailPage = () => {
           </div>
           <p className="preserve-wrap">{comment.content}</p>
           <div className="flex gap-2" style={{ marginTop: '0.75rem' }}>
-            {!isStaff && !isConversationLocked(feedback.status) && <button className="btn btn-sm btn-secondary" type="button" onClick={() => setReplyParentId(comment.id)}>Trả lời</button>}
+            {actionPolicy.canComment && <button className="btn btn-sm btn-secondary" type="button" onClick={() => setReplyParentId(comment.id)}>Trả lời</button>}
             {canModify && <button className="btn btn-sm btn-secondary" type="button" onClick={() => editConversationItem('comment', comment)}>Sửa</button>}
             {canModify && <button className="btn btn-sm btn-danger" type="button" onClick={() => deleteConversationItem('comment', comment)}>Xóa</button>}
           </div>
@@ -321,7 +271,7 @@ const FeedbackDetailPage = () => {
         </div>
         <div className="flex gap-2">
           {canEditFeedback && <button className="btn btn-primary" type="button" onClick={() => { setEditingFeedback((value) => !value); setEditErrors({}); }}>{editingFeedback ? 'Hủy chỉnh sửa' : 'Chỉnh sửa'}</button>}
-          {canDeleteFeedback && <button className="btn btn-danger" onClick={handleDeleteFeedback}>Xóa phản hồi</button>}
+          {canDeleteFeedback && <button className="btn btn-danger" onClick={handleDeleteFeedback}>Hủy phản hồi</button>}
           <button className="btn btn-secondary" onClick={() => navigate(-1)}>⬅ Quay lại</button>
         </div>
       </div>
@@ -339,7 +289,7 @@ const FeedbackDetailPage = () => {
         <div className="mb-4 text-muted">
           <p><strong>Người gửi:</strong> {feedback.submittedByUserName || feedback.customer?.fullName || feedback.customer?.email || '---'}</p>
           <p><strong>Danh mục:</strong> {feedback.category || feedback.category?.name || '---'}</p>
-          {isStaff && <p><strong>Mức độ ưu tiên:</strong> {feedback.priority}</p>}
+          {isInternalViewer && <p><strong>Mức độ ưu tiên:</strong> {feedback.priority}</p>}
           <p><strong>Đánh giá:</strong> {formatFeedbackRating(feedback.rating)}</p>
           {feedback.assignedToUserName && <p><strong>Người xử lý:</strong> {feedback.assignedToUserName}</p>}
         </div>
@@ -353,14 +303,14 @@ const FeedbackDetailPage = () => {
             <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
               {feedback.attachments.map((attachment) => <div key={attachment.id} className="flex gap-2">
                 <a className="btn btn-sm btn-secondary" href={attachment.publicUrl} target="_blank" rel="noreferrer">{attachment.fileName}</a>
-                {(isAdmin || (!isConversationLocked(feedback.status) && attachment.uploadedByUserId === user?.id)) && (
+                {actionPolicy.canManageAttachments && attachment.uploadedByUserId === user?.id && (
                   <button className="btn btn-sm btn-danger" type="button" onClick={() => handleDeleteAttachment(attachment)}>Xóa</button>
                 )}
               </div>)}
             </div>
           </div>
         )}
-        {!isConversationLocked(feedback.status) && (feedback.attachments?.length || 0) < 3 && (
+        {actionPolicy.canManageAttachments && (feedback.attachments?.length || 0) < 3 && (
           <div style={{ marginTop: '1rem', display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
             <input className="form-control" style={{ maxWidth: 420 }} type="file" multiple accept=".jpg,.jpeg,.png,.gif,.pdf,.docx,.xlsx" onChange={(event) => setAttachmentFiles(Array.from(event.target.files || []).slice(0, 3 - (feedback.attachments?.length || 0)))} />
             <button type="button" className="btn btn-secondary" disabled={attachmentLoading || attachmentFiles.length === 0} onClick={handleUploadAttachments}>{attachmentLoading ? 'Đang tải...' : 'Tải tệp'}</button>
@@ -404,90 +354,29 @@ const FeedbackDetailPage = () => {
         </div>
       )}
 
-      {/* ============================================================ */}
-      {/* Staff Workflow Panel — hidden from Customers                  */}
-      {/* ============================================================ */}
-      {isStaff && !isClosed(feedback.status) && (
+      {actionPolicy.hasManagementActions && (
         <div className="card mb-4">
           <div className="card-header">
             <h3 className="card-title">🔧 Quản Lý Phản Hồi</h3>
           </div>
 
           <div style={{ padding: '1rem 1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-            {/* Status Transition */}
-            {availableStatuses.length > 0 && (
-              <div>
-                <h4 style={{ marginBottom: '0.75rem', fontSize: '0.95rem' }}>Cập nhật trạng thái</h4>
-                <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'flex-start' }}>
-                  <div className="form-group" style={{ flex: 1, minWidth: 180, marginBottom: 0 }}>
-                    <select
-                      id="next-status"
-                      className="form-control"
-                      value={nextStatus}
-                      onChange={e => setNextStatus(e.target.value)}
-                    >
-                      <option value="">-- Chọn trạng thái --</option>
-                      {availableStatuses.map(s => (
-                        <option key={s} value={s}>{s}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <button
-                    id="btn-update-status"
-                    className="btn btn-primary"
-                    disabled={statusLoading || !nextStatus}
-                    onClick={handleStatusChange}
-                  >
-                    {statusLoading ? 'Đang cập nhật...' : 'Cập nhật'}
-                  </button>
-                </div>
-                {needsReason && (
-                  <div className="form-group" style={{ marginTop: '0.75rem' }}>
-                    <label className="form-label">Lý do (bắt buộc)</label>
-                    <textarea
-                      id="status-reason"
-                      className="form-control"
-                      rows={3}
-                      value={statusReason}
-                      onChange={e => setStatusReason(e.target.value)}
-                      placeholder="Nhập lý do..."
-                    />
-                  </div>
-                )}
-              </div>
+            {actionPolicy.canStart && (
+              <button className="btn btn-primary" type="button" disabled={statusLoading} onClick={() => handleStatusChange('InProgress')}>
+                {statusLoading ? 'Đang cập nhật...' : 'Bắt đầu xử lý'}
+              </button>
             )}
 
-            {/* Priority Management */}
-            <div>
-              <h4 style={{ marginBottom: '0.75rem', fontSize: '0.95rem' }}>Mức độ ưu tiên</h4>
-              <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-                <select
-                  id="priority-select"
-                  className="form-control"
-                  style={{ maxWidth: 200 }}
-                  value={newPriority}
-                  onChange={e => setNewPriority(e.target.value)}
-                >
-                  {PRIORITIES.map(p => (
-                    <option key={p} value={p}>{p}</option>
-                  ))}
-                </select>
-                <button
-                  id="btn-update-priority"
-                  className="btn btn-secondary"
-                  disabled={priorityLoading || newPriority === feedback.priority}
-                  onClick={handlePriorityChange}
-                >
-                  {priorityLoading ? 'Đang lưu...' : 'Lưu'}
-                </button>
-              </div>
-            </div>
+            {actionPolicy.canResolve && (
+              <button className="btn btn-primary" type="button" disabled={statusLoading} onClick={() => handleStatusChange('Resolved')}>
+                {statusLoading ? 'Đang cập nhật...' : 'Đánh dấu đã giải quyết'}
+              </button>
+            )}
 
-            {/* Assignment — Manager/Admin only */}
-            {isManager && (
+            {(actionPolicy.canAssign || actionPolicy.canReassign) && (
               <div>
                 <h4 style={{ marginBottom: '0.75rem', fontSize: '0.95rem' }}>
-                  {feedback.assignedToUserId ? 'Chuyển giao' : 'Giao việc'}
+                  {actionPolicy.canReassign ? 'Chuyển giao' : 'Giao việc'}
                 </h4>
                 <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
                   <select
@@ -510,19 +399,28 @@ const FeedbackDetailPage = () => {
                     disabled={assignLoading || !assignStaff}
                     onClick={handleAssign}
                   >
-                    {assignLoading ? 'Đang giao...' : (feedback.assignedToUserId ? 'Chuyển giao' : 'Giao việc')}
+                    {assignLoading ? 'Đang giao...' : (actionPolicy.canReassign ? 'Chuyển giao' : 'Giao việc')}
                   </button>
-                  {feedback.assignedToUserId && (
-                    <button className="btn btn-danger" disabled={assignLoading} onClick={handleUnassign}>Gỡ phân công</button>
-                  )}
                 </div>
+              </div>
+            )}
+
+            {actionPolicy.canClose && (
+              <div>
+                <div className="form-group">
+                  <label className="form-label" htmlFor="close-feedback-reason">Lý do đóng (bắt buộc)</label>
+                  <textarea id="close-feedback-reason" className="form-control" rows={3} value={statusReason} onChange={(event) => setStatusReason(event.target.value)} placeholder="Nhập lý do đóng..." />
+                </div>
+                <button className="btn btn-primary" type="button" disabled={statusLoading || !statusReason.trim()} onClick={() => handleStatusChange('Closed')}>
+                  {statusLoading ? 'Đang đóng...' : 'Đóng phản hồi'}
+                </button>
               </div>
             )}
           </div>
         </div>
       )}
 
-      {isStaff && assignmentHistory.length > 0 && (
+      {isInternalViewer && assignmentHistory.length > 0 && (
         <div className="card mb-4">
           <div className="card-header"><h3 className="card-title">Lịch sử phân công</h3></div>
           <div className="table-wrap"><table><thead><tr><th>Nhân viên</th><th>Người giao</th><th>Ghi chú</th><th>Thời gian</th><th>Trạng thái</th></tr></thead><tbody>
@@ -556,7 +454,7 @@ const FeedbackDetailPage = () => {
                 </span>
               </div>
               <p className="preserve-wrap">{resp.content}</p>
-              {(isAdmin || (!isConversationLocked(feedback.status) && resp.respondedByUserId === user?.id)) && <div className="flex gap-2" style={{ marginTop: '0.75rem' }}><button className="btn btn-sm btn-secondary" type="button" onClick={() => editConversationItem('response', resp)}>Sửa</button><button className="btn btn-sm btn-danger" type="button" onClick={() => deleteConversationItem('response', resp)}>Xóa</button></div>}
+              {actionPolicy.canRespond && resp.respondedByUserId === user?.id && <div className="flex gap-2" style={{ marginTop: '0.75rem' }}><button className="btn btn-sm btn-secondary" type="button" onClick={() => editConversationItem('response', resp)}>Sửa</button><button className="btn btn-sm btn-danger" type="button" onClick={() => deleteConversationItem('response', resp)}>Xóa</button></div>}
             </div>
           ))}
 
@@ -567,19 +465,19 @@ const FeedbackDetailPage = () => {
           )}
         </div>
 
-        {!isConversationLocked(feedback.status) && (
+        {(actionPolicy.canRespond || actionPolicy.canComment) && (
           <form onSubmit={handleReplySubmit}>
             {replyParentId && <div className="alert alert-info mb-4">Đang trả lời một bình luận. <button type="button" className="btn btn-sm btn-secondary" onClick={() => setReplyParentId(null)}>Hủy trả lời</button></div>}
             <div className="form-group">
               <textarea
                 className="form-control"
-                placeholder={isStaff ? 'Nhập nội dung phản hồi...' : 'Nhập bình luận của bạn...'}
+                placeholder={isSupportStaff ? 'Nhập nội dung phản hồi...' : 'Nhập bình luận của bạn...'}
                 value={replyContent}
                 onChange={e => setReplyContent(e.target.value)}
                 rows={4}
               />
             </div>
-            {isStaff && <label className="flex gap-2 mb-4" style={{ alignItems: 'center' }}><input type="checkbox" checked={isInternalReply} onChange={(event) => setIsInternalReply(event.target.checked)} /> Ghi chú nội bộ (khách hàng không nhìn thấy)</label>}
+            {isSupportStaff && <label className="flex gap-2 mb-4" style={{ alignItems: 'center' }}><input type="checkbox" checked={isInternalReply} onChange={(event) => setIsInternalReply(event.target.checked)} /> Ghi chú nội bộ (khách hàng không nhìn thấy)</label>}
             <button type="submit" className="btn btn-primary" disabled={submittingReply || !replyContent.trim()}>
               {submittingReply ? 'Đang gửi...' : 'Gửi'}
             </button>
