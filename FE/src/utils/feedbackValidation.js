@@ -41,3 +41,17 @@ export const validateFeedbackContent = ({ title = '', description = '', rating =
 export const formatFeedbackRating = (rating) => (
   Number.isInteger(rating) && rating >= 1 && rating <= 5 ? `${rating}/5` : 'Chưa đánh giá'
 );
+
+export const canCustomerEditFeedback = (user, feedback) => (
+  user?.role === 'Customer'
+  && Boolean(user?.id && feedback?.submittedByUserId)
+  && user.id === feedback.submittedByUserId
+  && feedback.status === 'Submitted'
+);
+
+export const createFeedbackEditForm = (feedback) => ({
+  title: feedback?.title || '',
+  description: feedback?.description || '',
+  categoryId: feedback?.categoryId || '',
+  rating: feedback?.rating == null ? '' : String(feedback.rating),
+});

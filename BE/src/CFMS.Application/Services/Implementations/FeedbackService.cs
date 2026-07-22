@@ -155,40 +155,26 @@ public class FeedbackService : IFeedbackService
         return result;
     }
 
-    /// <summary>
-    /// Cập nhật nội dung phản hồi. Customer chỉ được sửa phiếu của chính mình khi còn SUBMITTED;
-    /// nhân viên quản lý vẫn phải thỏa điều kiện phạm vi xử lý.
-    /// </summary>
+    /// <summary>Updates the editable fields of a Customer-owned SUBMITTED feedback.</summary>
     public async Task<FeedbackDetailDto> UpdateFeedbackAsync(Guid id, UpdateFeedbackRequest request, Guid requestingUserId, CancellationToken ct = default)
     {
-        if (request.Rating is < 1 or > 5)
+        if (request.Rating is null or < 1 or > 5)
         {
-            throw new ValidationException(["Rating must be between 1 and 5."]);
+            throw new ValidationException(["Rating is required and must be between 1 and 5."]);
         }
 
         var feedback = await _unitOfWork.Feedbacks.GetByIdWithDetailsAsync(id, ct)
             ?? throw new NotFoundException(nameof(Feedback), id);
         var user = await GetCurrentUserAsync(requestingUserId, ct);
 
-        if (user.Role == UserRole.Customer)
-        {
-            if (feedback.SubmittedByUserId != requestingUserId)
-                throw new ForbiddenException("Customers can only edit their own feedback.");
-            if (feedback.Status != FeedbackStatus.Submitted)
-                throw new BusinessRuleException("Customers can only edit feedback while it is SUBMITTED.");
-        }
-
-        if (user.Role != UserRole.Customer)
-            EnsureCanHandleFeedback(user, feedback, requestingUserId);
-
-        if (feedback.Status is FeedbackStatus.Closed or FeedbackStatus.Cancelled)
-        {
-            throw new BusinessRuleException("Closed or rejected feedback content cannot be edited.");
-        }
+        if (user.Role != UserRole.Customer || feedback.SubmittedByUserId != requestingUserId)
+            throw new ForbiddenException("Customers can only edit their own feedback.");
+        if (feedback.Status != FeedbackStatus.Submitted)
+            throw new BusinessRuleException("Customers can only edit feedback while it is SUBMITTED.");
 
         var category = await _unitOfWork.FeedbackCategories.GetByIdAsync(request.CategoryId, ct)
             ?? throw new NotFoundException(nameof(FeedbackCategoryEntity), request.CategoryId);
-        if (!category.IsActive && category.Id != feedback.CategoryId)
+        if (!category.IsActive)
         {
             throw new BusinessRuleException("Disabled categories cannot be selected for feedback.");
         }
@@ -198,41 +184,18 @@ public class FeedbackService : IFeedbackService
             throw new BusinessRuleException("Categories in disabled departments cannot be selected for feedback.");
         }
 
-        if (user.Role == UserRole.SupportStaff && category.DepartmentId != user.DepartmentId)
-        {
-            throw new ForbiddenException("Staff can only move feedback within their own department.");
-        }
-
-        if (feedback.AssignedToUserId.HasValue)
-        {
-            var assigneeDepartmentId = feedback.AssignedToUser?.DepartmentId;
-            if (!assigneeDepartmentId.HasValue)
-            {
-                assigneeDepartmentId = (await _unitOfWork.Users.GetByIdAsync(feedback.AssignedToUserId.Value, ct))?.DepartmentId;
-            }
-
-            if (assigneeDepartmentId != category.DepartmentId)
-            {
-                throw new BusinessRuleException("Unassign or reassign the feedback before moving it to another department.");
-            }
-        }
-
-        var oldValues = $"Title={feedback.Title};CategoryId={feedback.CategoryId};Priority={feedback.Priority}";
+        var oldValues = $"Title={feedback.Title};CategoryId={feedback.CategoryId};Rating={feedback.Rating}";
         feedback.Title = request.Title.Trim();
         feedback.Description = request.Description.Trim();
         feedback.CategoryId = category.Id;
         feedback.Category = category;
         feedback.DepartmentId = category.DepartmentId;
-        if (request.Rating.HasValue)
-            feedback.Rating = request.Rating.Value;
-        // Customer không được tự thay đổi mức ưu tiên; Manager/Staff mới có quyền này.
-        if (user.Role != UserRole.Customer)
-            feedback.Priority = request.Priority;
+        feedback.Rating = request.Rating.Value;
         feedback.UpdatedAtUtc = DateTime.UtcNow;
 
         await _unitOfWork.SaveChangesAsync(ct);
 
-        await _auditLogService.LogAsync(requestingUserId, AuditAction.Update, nameof(Feedback), feedback.Id, oldValues, $"Title={feedback.Title};CategoryId={feedback.CategoryId};Priority={feedback.Priority}", null, ct);
+        await _auditLogService.LogAsync(requestingUserId, AuditAction.Update, nameof(Feedback), feedback.Id, oldValues, $"Title={feedback.Title};CategoryId={feedback.CategoryId};Rating={feedback.Rating}", null, ct);
 
         var detail = await _unitOfWork.Feedbacks.GetByIdWithDetailsAsync(feedback.Id, ct) ?? feedback;
         var result = _mapper.Map<FeedbackDetailDto>(detail);

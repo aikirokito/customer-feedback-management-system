@@ -53,10 +53,9 @@ public class UpdateFeedbackRequestValidator : AbstractValidator<UpdateFeedbackRe
             .Must(value => value.Trim().Length <= FeedbackConstants.DescriptionMaxLength)
             .WithMessage($"Description must not exceed {FeedbackConstants.DescriptionMaxLength} characters.");
         RuleFor(x => x.CategoryId).NotEmpty().WithMessage("Category is required.");
-        RuleFor(x => x.Priority).IsInEnum();
         RuleFor(x => x.Rating)
-            .InclusiveBetween(1, 5).WithMessage("Rating must be between 1 and 5.")
-            .When(x => x.Rating.HasValue);
+            .NotNull().WithMessage("Rating is required.")
+            .InclusiveBetween(1, 5).WithMessage("Rating must be between 1 and 5.");
     }
 }
 

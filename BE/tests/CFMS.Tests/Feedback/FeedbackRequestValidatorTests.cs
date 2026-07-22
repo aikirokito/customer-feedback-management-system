@@ -37,18 +37,18 @@ public class FeedbackRequestValidatorTests
     }
 
     [Theory]
+    [InlineData(null, false)]
     [InlineData(0, false)]
     [InlineData(1, true)]
     [InlineData(5, true)]
     [InlineData(6, false)]
-    public void UpdateValidator_ValidatesRatingWhenProvided(int rating, bool shouldBeValid)
+    public void UpdateValidator_RequiresRatingFromOneThroughFive(int? rating, bool shouldBeValid)
     {
         var result = new UpdateFeedbackRequestValidator().Validate(new UpdateFeedbackRequest
         {
             Title = "Valid title",
             Description = "Valid description",
             CategoryId = Guid.NewGuid(),
-            Priority = FeedbackPriority.Medium,
             Rating = rating
         });
 
@@ -179,7 +179,6 @@ public class FeedbackRequestValidatorTests
                 Title = title,
                 Description = description,
                 CategoryId = categoryId,
-                Priority = FeedbackPriority.Medium,
                 Rating = 3
             })
         ];

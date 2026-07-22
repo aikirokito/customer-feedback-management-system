@@ -59,7 +59,7 @@ public class FeedbackController : BaseController
     }
 
     [HttpPut("{id:guid}")]
-    [Authorize(Roles = $"{RoleNames.Customer},{RoleNames.SupportStaff},{RoleNames.DepartmentManager},{RoleNames.SystemAdmin}")]
+    [Authorize(Roles = RoleNames.Customer)]
     [ProducesResponseType(200)]
     [ProducesResponseType(400)]
     [ProducesResponseType(403)]
