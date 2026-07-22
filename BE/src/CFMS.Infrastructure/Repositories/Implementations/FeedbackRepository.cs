@@ -103,6 +103,21 @@ public class FeedbackRepository : Repository<Feedback>, IFeedbackRepository
                 .ThenInclude(r => r.AuthorUser)
             .FirstOrDefaultAsync(c => c.Id == commentId, ct);
 
+    public async Task AddAttachmentAsync(FeedbackAttachment attachment, CancellationToken ct = default)
+        => await _context.Set<FeedbackAttachment>().AddAsync(attachment, ct);
+
+    public async Task AddResponseAsync(FeedbackResponse response, CancellationToken ct = default)
+        => await _context.Set<FeedbackResponse>().AddAsync(response, ct);
+
+    public async Task AddCommentAsync(FeedbackComment comment, CancellationToken ct = default)
+        => await _context.Set<FeedbackComment>().AddAsync(comment, ct);
+
+    public async Task AddAssignmentAsync(FeedbackAssignment assignment, CancellationToken ct = default)
+        => await _context.Set<FeedbackAssignment>().AddAsync(assignment, ct);
+
+    public async Task AddStatusHistoryAsync(FeedbackStatusHistory statusHistory, CancellationToken ct = default)
+        => await _context.Set<FeedbackStatusHistory>().AddAsync(statusHistory, ct);
+
     public void RemoveAttachment(FeedbackAttachment attachment)
         => _context.Set<FeedbackAttachment>().Remove(attachment);
 

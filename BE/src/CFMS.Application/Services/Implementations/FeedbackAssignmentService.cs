@@ -91,6 +91,7 @@ public class FeedbackAssignmentService : IFeedbackAssignmentService
         };
 
         feedback.AssignmentHistory.Add(assignment);
+        await _unitOfWork.Feedbacks.AddAssignmentAsync(assignment, ct);
         feedback.AssignedToUserId = assignee.Id;
         feedback.DepartmentId ??= assignee.DepartmentId;
         feedback.UpdatedAtUtc = DateTime.UtcNow;
@@ -98,14 +99,16 @@ public class FeedbackAssignmentService : IFeedbackAssignmentService
         if (feedback.Status == FeedbackStatus.Submitted)
         {
             feedback.Status = FeedbackStatus.Assigned;
-            feedback.StatusHistory.Add(new FeedbackStatusHistory
+            var statusHistory = new FeedbackStatusHistory
             {
                 FeedbackId = feedback.Id,
                 FromStatus = FeedbackStatus.Submitted,
                 ToStatus = FeedbackStatus.Assigned,
                 ChangedByUserId = assignedByUserId,
                 Reason = "Feedback assigned to support staff."
-            });
+            };
+            feedback.StatusHistory.Add(statusHistory);
+            await _unitOfWork.Feedbacks.AddStatusHistoryAsync(statusHistory, ct);
         }
 
         await _unitOfWork.SaveChangesAsync(ct);
@@ -166,14 +169,16 @@ public class FeedbackAssignmentService : IFeedbackAssignmentService
 
         if (previousStatus != FeedbackStatus.Submitted)
         {
-            feedback.StatusHistory.Add(new FeedbackStatusHistory
+            var statusHistory = new FeedbackStatusHistory
             {
                 FeedbackId = feedback.Id,
                 FromStatus = previousStatus,
                 ToStatus = FeedbackStatus.Submitted,
                 ChangedByUserId = requestingUserId,
                 Reason = "Feedback unassigned and returned to the triage queue."
-            });
+            };
+            feedback.StatusHistory.Add(statusHistory);
+            await _unitOfWork.Feedbacks.AddStatusHistoryAsync(statusHistory, ct);
         }
 
         await _unitOfWork.SaveChangesAsync(ct);

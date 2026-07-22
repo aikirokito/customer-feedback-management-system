@@ -62,8 +62,8 @@ public class FeedbackCommentService : IFeedbackCommentService
         };
 
         feedback.Comments.Add(comment);
+        await _unitOfWork.Feedbacks.AddCommentAsync(comment, ct);
         feedback.UpdatedAtUtc = DateTime.UtcNow;
-        _unitOfWork.Feedbacks.Update(feedback);
         await _unitOfWork.SaveChangesAsync(ct);
 
         await _auditLogService.LogAsync(authorUserId, AuditAction.Create, nameof(FeedbackComment), comment.Id, null, $"Comment added to feedback {feedback.Id}", null, ct);

@@ -102,6 +102,14 @@ public class FeedbackAssignmentServiceTests
         feedback.AssignedToUserId.Should().Be(assignee.Id);
         feedback.AssignmentHistory.Should().ContainSingle(assignment =>
             assignment.IsActive && assignment.AssignedToUserId == assignee.Id);
+        feedback.AssignmentHistory.Should().HaveCount(isReassignment ? 2 : 1);
+        feedback.StatusHistory.Should().HaveCount(isReassignment ? 0 : 1);
+        _feedbacks.Verify(x => x.AddAssignmentAsync(
+            It.Is<FeedbackAssignment>(assignment => assignment.AssignedToUserId == assignee.Id),
+            It.IsAny<CancellationToken>()), Times.Once);
+        _feedbacks.Verify(x => x.AddStatusHistoryAsync(
+            It.IsAny<FeedbackStatusHistory>(),
+            It.IsAny<CancellationToken>()), isReassignment ? Times.Never() : Times.Once());
         if (isReassignment)
         {
             previousAssignment.IsActive.Should().BeFalse();

@@ -70,8 +70,8 @@ public class FeedbackResponseService : IFeedbackResponseService
         };
 
         feedback.Responses.Add(response);
+        await _unitOfWork.Feedbacks.AddResponseAsync(response, ct);
         feedback.UpdatedAtUtc = DateTime.UtcNow;
-        _unitOfWork.Feedbacks.Update(feedback);
         await _unitOfWork.SaveChangesAsync(ct);
 
         await _auditLogService.LogAsync(respondedByUserId, AuditAction.Create, nameof(FeedbackResponse), response.Id, null, $"Response added to feedback {feedback.Id}", null, ct);

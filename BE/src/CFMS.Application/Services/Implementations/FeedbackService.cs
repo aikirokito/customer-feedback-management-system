@@ -217,7 +217,6 @@ public class FeedbackService : IFeedbackService
             feedback.Priority = request.Priority;
         feedback.UpdatedAtUtc = DateTime.UtcNow;
 
-        _unitOfWork.Feedbacks.Update(feedback);
         await _unitOfWork.SaveChangesAsync(ct);
 
         await _auditLogService.LogAsync(requestingUserId, AuditAction.Update, nameof(Feedback), feedback.Id, oldValues, $"Title={feedback.Title};CategoryId={feedback.CategoryId};Priority={feedback.Priority}", null, ct);
@@ -244,7 +243,6 @@ public class FeedbackService : IFeedbackService
         feedback.Priority = request.Priority;
         feedback.UpdatedAtUtc = DateTime.UtcNow;
 
-        _unitOfWork.Feedbacks.Update(feedback);
         await _unitOfWork.SaveChangesAsync(ct);
 
         await _auditLogService.LogAsync(requestingUserId, AuditAction.Update, nameof(Feedback), feedback.Id, oldPriority.ToString(), request.Priority.ToString(), null, ct);
@@ -274,7 +272,6 @@ public class FeedbackService : IFeedbackService
         var previousRating = feedback.Rating;
         feedback.Rating = request.Rating;
         feedback.UpdatedAtUtc = DateTime.UtcNow;
-        _unitOfWork.Feedbacks.Update(feedback);
         await _unitOfWork.SaveChangesAsync(ct);
 
         await _auditLogService.LogAsync(
@@ -339,16 +336,17 @@ public class FeedbackService : IFeedbackService
             feedback.ClosedAtUtc = DateTime.UtcNow;
         }
 
-        feedback.StatusHistory.Add(new FeedbackStatusHistory
+        var statusHistory = new FeedbackStatusHistory
         {
             FeedbackId = feedback.Id,
             FromStatus = oldStatus,
             ToStatus = request.NewStatus,
             ChangedByUserId = requestingUserId,
             Reason = request.Reason
-        });
+        };
+        feedback.StatusHistory.Add(statusHistory);
+        await _unitOfWork.Feedbacks.AddStatusHistoryAsync(statusHistory, ct);
 
-        _unitOfWork.Feedbacks.Update(feedback);
         await _unitOfWork.SaveChangesAsync(ct);
 
         await _auditLogService.LogAsync(requestingUserId, AuditAction.StatusChange, nameof(Feedback), feedback.Id, oldStatus.ToString(), request.NewStatus.ToString(), null, ct);
@@ -393,14 +391,16 @@ public class FeedbackService : IFeedbackService
 
         feedback.Status = FeedbackStatus.Cancelled;
         feedback.UpdatedAtUtc = DateTime.UtcNow;
-        feedback.StatusHistory.Add(new FeedbackStatusHistory
+        var statusHistory = new FeedbackStatusHistory
         {
             FeedbackId = feedback.Id,
             FromStatus = FeedbackStatus.Submitted,
             ToStatus = FeedbackStatus.Cancelled,
             ChangedByUserId = customerId,
             Reason = "Cancelled by customer before assignment."
-        });
+        };
+        feedback.StatusHistory.Add(statusHistory);
+        await _unitOfWork.Feedbacks.AddStatusHistoryAsync(statusHistory, ct);
 
         await _unitOfWork.SaveChangesAsync(ct);
         await _auditLogService.LogAsync(customerId, AuditAction.StatusChange, nameof(Feedback), feedback.Id,
@@ -435,7 +435,6 @@ public class FeedbackService : IFeedbackService
         feedback.DeletedByUserId = requestingUserId;
         feedback.UpdatedAtUtc = DateTime.UtcNow;
 
-        _unitOfWork.Feedbacks.Update(feedback);
         await _unitOfWork.SaveChangesAsync(ct);
 
         await _auditLogService.LogAsync(requestingUserId, AuditAction.Delete, nameof(Feedback), feedback.Id, null, $"Deleted feedback '{feedback.Title}'", null, ct);
@@ -509,8 +508,8 @@ public class FeedbackService : IFeedbackService
         try
         {
             feedback.Attachments.Add(attachment);
+            await _unitOfWork.Feedbacks.AddAttachmentAsync(attachment, ct);
             feedback.UpdatedAtUtc = DateTime.UtcNow;
-            _unitOfWork.Feedbacks.Update(feedback);
             await _unitOfWork.SaveChangesAsync(ct);
         }
         catch
@@ -560,7 +559,6 @@ public class FeedbackService : IFeedbackService
         await _storageService.DeleteFileAsync(attachment.StorageKey, AttachmentBucketName, ct);
         _unitOfWork.Feedbacks.RemoveAttachment(attachment);
         feedback.UpdatedAtUtc = DateTime.UtcNow;
-        _unitOfWork.Feedbacks.Update(feedback);
         await _unitOfWork.SaveChangesAsync(ct);
 
         await _auditLogService.LogAsync(requestingUserId, AuditAction.Delete, nameof(FeedbackAttachment), attachment.Id, null, $"Deleted attachment '{attachment.FileName}'", null, ct);
