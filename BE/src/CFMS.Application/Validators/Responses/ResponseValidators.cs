@@ -7,7 +7,6 @@ public class CreateResponseRequestValidator : AbstractValidator<CreateResponseRe
 {
     public CreateResponseRequestValidator()
     {
-        RuleFor(x => x.FeedbackId).NotEmpty();
         RuleFor(x => x.Content).NotEmpty().MaximumLength(5000);
     }
 }
