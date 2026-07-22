@@ -6,6 +6,7 @@ namespace CFMS.Application.Services.Interfaces;
 
 public interface IUserService
 {
+    Task<UserDetailDto> CreateUserAsync(CreateUserRequest request, Guid actorUserId, CancellationToken ct = default);
     Task<PagedResult<UserListItemDto>> GetUsersAsync(int page, int pageSize, UserRole? role = null, string? searchTerm = null, CancellationToken ct = default);
     Task<UserDetailDto> GetUserByIdAsync(Guid id, CancellationToken ct = default);
     Task<UserDetailDto> UpdateUserAsync(Guid id, UpdateUserRequest request, CancellationToken ct = default);

@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace CFMS.Api.Controllers;
 
 /// <summary>
-/// Handles authentication: login, register, token refresh, Google OAuth, logout, password change.
+/// Handles authentication: login, register, token refresh, logout, password change.
 /// </summary>
 [Tags("Authentication")]
 public class AuthController : BaseController
@@ -58,17 +58,6 @@ public class AuthController : BaseController
     {
         var result = await _authService.RefreshTokenAsync(request.RefreshToken, CurrentUserIp, ct);
         return OkResponse(result, "Token refreshed successfully.");
-    }
-
-    /// <summary>Login or register via Google OAuth ID token.</summary>
-    [HttpPost("google-login")]
-    [AllowAnonymous]
-    [ProducesResponseType(typeof(AuthResponse), 200)]
-    [ProducesResponseType(400)]
-    public async Task<IActionResult> GoogleLogin([FromBody] GoogleLoginRequest request, CancellationToken ct)
-    {
-        var result = await _authService.GoogleLoginAsync(request, CurrentUserIp, ct);
-        return OkResponse(result, "Logged in via Google successfully.");
     }
 
     /// <summary>Logout and revoke the current refresh token.</summary>

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import userApi from '../api/userApi';
 import { useAuth } from '../context/AuthContext';
+import { ADMIN_CREATABLE_ROLE_OPTIONS, validateAdminUser } from '../utils/adminUserValidation';
 
 const ROLE_OPTIONS = [
   { value: 'Customer', label: 'Khách hàng' },
@@ -10,6 +11,16 @@ const ROLE_OPTIONS = [
 ];
 
 const needsDepartment = (role) => ['SupportStaff', 'DepartmentManager'].includes(role);
+
+const EMPTY_CREATE_FORM = {
+  email: '',
+  password: '',
+  confirmPassword: '',
+  firstName: '',
+  lastName: '',
+  phoneNumber: '',
+  role: '',
+};
 
 const ManageUsersPage = () => {
   const { user } = useAuth();
@@ -23,6 +34,10 @@ const ManageUsersPage = () => {
   const [drafts, setDrafts] = useState({});
   const [actionLoading, setActionLoading] = useState({});
   const [message, setMessage] = useState({ text: '', type: '' });
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [createForm, setCreateForm] = useState(EMPTY_CREATE_FORM);
+  const [createErrors, setCreateErrors] = useState({});
+  const [createLoading, setCreateLoading] = useState(false);
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
@@ -115,17 +130,117 @@ const ManageUsersPage = () => {
     }
   };
 
+  const updateCreateField = (field, value) => {
+    setCreateForm((current) => ({ ...current, [field]: value }));
+    setCreateErrors((current) => ({ ...current, [field]: undefined }));
+  };
+
+  const createUser = async (event) => {
+    event.preventDefault();
+    const { values, errors } = validateAdminUser(createForm);
+    if (Object.keys(errors).length > 0) {
+      setCreateErrors(errors);
+      return;
+    }
+
+    setCreateLoading(true);
+    setCreateErrors({});
+    try {
+      await userApi.createUser(values);
+      setCreateForm(EMPTY_CREATE_FORM);
+      setShowCreateForm(false);
+      setMessage({ text: 'Đã tạo tài khoản hoạt động thành công.', type: 'success' });
+      await fetchUsers();
+    } catch (error) {
+      const errorMessage = error.normalizedMessage || 'Không thể tạo tài khoản.';
+      if (error.response?.status === 409) {
+        setCreateErrors({ email: errorMessage });
+      } else {
+        setMessage({ text: errorMessage, type: 'error' });
+      }
+    } finally {
+      setCreateLoading(false);
+    }
+  };
+
+  const renderCreateError = (field) => createErrors[field]
+    ? <span className="text-danger" role="alert">{createErrors[field]}</span>
+    : null;
+
   return (
     <div className="manage-users-page">
-      <div className="page-header">
-        <h1>Quản lý người dùng</h1>
-        <p>Cập nhật vai trò, phòng ban và trạng thái tài khoản.</p>
+      <div className="page-header flex-between" style={{ gap: '1rem', flexWrap: 'wrap' }}>
+        <div>
+          <h1>Quản lý người dùng</h1>
+          <p>Cập nhật vai trò, phòng ban và trạng thái tài khoản.</p>
+        </div>
+        <button
+          type="button"
+          className="btn btn-primary"
+          onClick={() => {
+            setShowCreateForm((current) => !current);
+            setCreateErrors({});
+          }}
+        >
+          {showCreateForm ? 'Đóng' : 'Tạo người dùng'}
+        </button>
       </div>
 
       {message.text && (
         <div className={`alert alert-${message.type === 'error' ? 'error' : 'success'} mb-4`}>
           {message.text}
         </div>
+      )}
+
+      {showCreateForm && (
+        <form className="card mb-4" onSubmit={createUser} noValidate>
+          <h2 style={{ marginBottom: '1rem' }}>Tạo tài khoản Staff hoặc Manager</h2>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0 1rem' }}>
+            <div className="form-group">
+              <label className="form-label" htmlFor="create-last-name">Họ</label>
+              <input id="create-last-name" className="form-control" maxLength={100} value={createForm.lastName} onChange={(event) => updateCreateField('lastName', event.target.value)} />
+              {renderCreateError('lastName')}
+            </div>
+            <div className="form-group">
+              <label className="form-label" htmlFor="create-first-name">Tên</label>
+              <input id="create-first-name" className="form-control" maxLength={100} value={createForm.firstName} onChange={(event) => updateCreateField('firstName', event.target.value)} />
+              {renderCreateError('firstName')}
+            </div>
+            <div className="form-group">
+              <label className="form-label" htmlFor="create-email">Email</label>
+              <input id="create-email" className="form-control" type="email" maxLength={256} autoComplete="off" value={createForm.email} onChange={(event) => updateCreateField('email', event.target.value)} />
+              {renderCreateError('email')}
+            </div>
+            <div className="form-group">
+              <label className="form-label" htmlFor="create-phone">Số điện thoại (không bắt buộc)</label>
+              <input id="create-phone" className="form-control" type="tel" maxLength={20} autoComplete="off" value={createForm.phoneNumber} onChange={(event) => updateCreateField('phoneNumber', event.target.value)} />
+              {renderCreateError('phoneNumber')}
+            </div>
+            <div className="form-group">
+              <label className="form-label" htmlFor="create-role">Vai trò</label>
+              <select id="create-role" className="form-control" value={createForm.role} onChange={(event) => updateCreateField('role', event.target.value)}>
+                <option value="">Chọn vai trò</option>
+                {ADMIN_CREATABLE_ROLE_OPTIONS.map((role) => <option key={role.value} value={role.value}>{role.label}</option>)}
+              </select>
+              {renderCreateError('role')}
+            </div>
+            <div className="form-group">
+              <label className="form-label" htmlFor="create-password">Mật khẩu</label>
+              <input id="create-password" className="form-control" type="password" maxLength={128} autoComplete="new-password" value={createForm.password} onChange={(event) => updateCreateField('password', event.target.value)} />
+              {renderCreateError('password')}
+            </div>
+            <div className="form-group">
+              <label className="form-label" htmlFor="create-confirm-password">Xác nhận mật khẩu</label>
+              <input id="create-confirm-password" className="form-control" type="password" maxLength={128} autoComplete="new-password" value={createForm.confirmPassword} onChange={(event) => updateCreateField('confirmPassword', event.target.value)} />
+              {renderCreateError('confirmPassword')}
+            </div>
+          </div>
+          <div>
+            <button type="submit" className="btn btn-primary" disabled={createLoading}>
+              {createLoading ? 'Đang tạo...' : 'Tạo tài khoản'}
+            </button>
+          </div>
+        </form>
       )}
 
       <div className="card mb-4">

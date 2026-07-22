@@ -4,6 +4,7 @@ const normalizeFeedbackPayload = (data) => ({
   title: data.title,
   description: data.description,
   categoryId: data.categoryId,
+  rating: Number(data.rating),
 });
 
 const normalizeStatusPayload = (data) => ({
@@ -29,15 +30,6 @@ const feedbackApi = {
   }),
   getResponses: (id) => axiosClient.get(`/Feedback/${id}/responses`).then(asListResponse),
 
-  addComment: (id, data) => axiosClient.post(`/Feedback/${id}/comments`, {
-    content: data.content || data.message || '',
-    parentCommentId: data.parentCommentId || null,
-  }),
-  getComments: (id) => axiosClient.get(`/Feedback/${id}/comments`).then(asListResponse),
-  updateComment: (feedbackId, commentId, content) =>
-    axiosClient.put(`/Feedback/${feedbackId}/comments/${commentId}`, { content }),
-  deleteComment: (feedbackId, commentId) =>
-    axiosClient.delete(`/Feedback/${feedbackId}/comments/${commentId}`),
   updateResponse: (feedbackId, responseId, content) =>
     axiosClient.put(`/Feedback/${feedbackId}/responses/${responseId}`, { content }),
   deleteResponse: (feedbackId, responseId) =>
@@ -55,19 +47,8 @@ const feedbackApi = {
   managePriority: (id, data) => axiosClient.patch(`/Feedback/${id}/priority`, {
     priority: data.priority,
   }),
-  rateFeedback: (id, rating) => axiosClient.patch(`/Feedback/${id}/rating`, { rating: Number(rating) }),
   getAssignmentHistory: (id) => axiosClient.get(`/Feedback/${id}/assignments`).then(asListResponse),
   unassignFeedback: (id) => axiosClient.delete(`/Feedback/${id}/assignments`),
-
-  uploadAttachment: (id, file) => {
-    const formData = new FormData();
-    formData.append('file', file);
-    return axiosClient.post(`/Feedback/${id}/attachments`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-  },
-  deleteAttachment: (feedbackId, attachmentId) =>
-    axiosClient.delete(`/Feedback/${feedbackId}/attachments/${attachmentId}`),
 
   getCategories: () => axiosClient.get('/Categories'),
   getAllCategories: () => axiosClient.get('/admin/categories'),

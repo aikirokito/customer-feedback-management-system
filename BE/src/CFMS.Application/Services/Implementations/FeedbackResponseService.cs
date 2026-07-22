@@ -55,11 +55,6 @@ public class FeedbackResponseService : IFeedbackResponseService
         var responder = await GetUserAsync(respondedByUserId, ct);
         EnsureCanRespond(responder, feedback, respondedByUserId);
 
-        if (feedback.Status is FeedbackStatus.Closed or FeedbackStatus.Cancelled)
-        {
-            throw new BusinessRuleException("Responses cannot be added to closed or rejected feedback.");
-        }
-
         var response = new FeedbackResponse
         {
             FeedbackId = feedback.Id,
@@ -70,8 +65,8 @@ public class FeedbackResponseService : IFeedbackResponseService
         };
 
         feedback.Responses.Add(response);
+        await _unitOfWork.Feedbacks.AddResponseAsync(response, ct);
         feedback.UpdatedAtUtc = DateTime.UtcNow;
-        _unitOfWork.Feedbacks.Update(feedback);
         await _unitOfWork.SaveChangesAsync(ct);
 
         await _auditLogService.LogAsync(respondedByUserId, AuditAction.Create, nameof(FeedbackResponse), response.Id, null, $"Response added to feedback {feedback.Id}", null, ct);
@@ -95,16 +90,11 @@ public class FeedbackResponseService : IFeedbackResponseService
         }
 
         var user = await GetUserAsync(requestingUserId, ct);
-        EnsureCanView(user, response.Feedback, requestingUserId);
+        EnsureCanRespond(user, response.Feedback, requestingUserId);
 
-        if (user.Role != UserRole.SystemAdmin && response.Feedback.Status is FeedbackStatus.Closed or FeedbackStatus.Cancelled)
+        if (response.RespondedByUserId != requestingUserId)
         {
-            throw new BusinessRuleException("Responses on closed or rejected feedback cannot be changed.");
-        }
-
-        if (response.RespondedByUserId != requestingUserId && user.Role != UserRole.SystemAdmin)
-        {
-            throw new ForbiddenException("Only the response author or a system admin can update this response.");
+            throw new ForbiddenException("Only the response author can update this response.");
         }
 
         response.Content = request.Content.Trim();
@@ -126,16 +116,11 @@ public class FeedbackResponseService : IFeedbackResponseService
         }
 
         var user = await GetUserAsync(requestingUserId, ct);
-        EnsureCanView(user, response.Feedback, requestingUserId);
+        EnsureCanRespond(user, response.Feedback, requestingUserId);
 
-        if (user.Role != UserRole.SystemAdmin && response.Feedback.Status is FeedbackStatus.Closed or FeedbackStatus.Cancelled)
+        if (response.RespondedByUserId != requestingUserId)
         {
-            throw new BusinessRuleException("Responses on closed or rejected feedback cannot be deleted.");
-        }
-
-        if (response.RespondedByUserId != requestingUserId && user.Role != UserRole.SystemAdmin)
-        {
-            throw new ForbiddenException("Only the response author or a system admin can delete this response.");
+            throw new ForbiddenException("Only the response author can delete this response.");
         }
 
         response.IsDeleted = true;
@@ -157,20 +142,16 @@ public class FeedbackResponseService : IFeedbackResponseService
             throw new ForbiddenException("Customers can only view responses on their own feedback.");
         if (user.Role == UserRole.SupportStaff && feedback.AssignedToUserId != userId)
             throw new ForbiddenException("Support staff can only view assigned feedback responses.");
-        if (user.Role == UserRole.DepartmentManager &&
-            (!user.DepartmentId.HasValue || feedback.DepartmentId != user.DepartmentId))
-            throw new ForbiddenException("Department Managers can only view responses in their department.");
     }
 
     private static void EnsureCanRespond(User user, Feedback feedback, Guid userId)
     {
-        if (user.Role == UserRole.SupportStaff && feedback.AssignedToUserId != userId)
+        if (user.Role != UserRole.SupportStaff)
+            throw new ForbiddenException("Only Support Staff can create or modify official feedback responses.");
+        if (feedback.AssignedToUserId != userId)
             throw new ForbiddenException("Support staff can only respond to assigned feedback.");
-        if (user.Role == UserRole.DepartmentManager &&
-            (!user.DepartmentId.HasValue || feedback.DepartmentId != user.DepartmentId))
-            throw new ForbiddenException("Department Managers can only respond to feedback in their department.");
-        if (user.Role == UserRole.Customer)
-            throw new ForbiddenException("Customers cannot create staff responses.");
+        if (feedback.Status is not (FeedbackStatus.Assigned or FeedbackStatus.InProgress))
+            throw new BusinessRuleException("Responses can only be changed while feedback is ASSIGNED or IN_PROGRESS.");
     }
 
     private async Task SafeNotifyAsync(Guid userId, NotificationType type, string title, string message, Guid? entityId, string? entityType, CancellationToken ct)

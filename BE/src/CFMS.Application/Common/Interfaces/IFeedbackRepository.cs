@@ -27,6 +27,11 @@ public interface IFeedbackRepository : IRepository<Feedback>
     Task<FeedbackAttachment?> GetAttachmentByIdAsync(Guid attachmentId, CancellationToken ct = default);
     Task<FeedbackResponse?> GetResponseByIdAsync(Guid responseId, CancellationToken ct = default);
     Task<FeedbackComment?> GetCommentByIdAsync(Guid commentId, CancellationToken ct = default);
+    Task AddAttachmentAsync(FeedbackAttachment attachment, CancellationToken ct = default);
+    Task AddResponseAsync(FeedbackResponse response, CancellationToken ct = default);
+    Task AddCommentAsync(FeedbackComment comment, CancellationToken ct = default);
+    Task AddAssignmentAsync(FeedbackAssignment assignment, CancellationToken ct = default);
+    Task AddStatusHistoryAsync(FeedbackStatusHistory statusHistory, CancellationToken ct = default);
     void RemoveAttachment(FeedbackAttachment attachment);
 
     Task<IEnumerable<Feedback>> GetReportFeedbacksAsync(

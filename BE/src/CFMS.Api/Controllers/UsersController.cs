@@ -41,6 +41,18 @@ public class UsersController : BaseController
         return OkResponse(result);
     }
 
+    [HttpPost("~/api/admin/users")]
+    [Authorize(Roles = RoleNames.SystemAdmin)]
+    [ProducesResponseType(typeof(UserDetailDto), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> CreateUser([FromBody] CreateUserRequest request, CancellationToken ct)
+    {
+        var result = await _userService.CreateUserAsync(request, CurrentUserId, ct);
+        return CreatedResponse("GetUserById", new { id = result.Id }, result);
+    }
+
     [HttpGet("{id:guid}", Name = "GetUserById")]
     [Authorize(Roles = RoleNames.SystemAdmin)]
     [ProducesResponseType(200)]
@@ -131,13 +143,8 @@ public class UsersController : BaseController
     [ProducesResponseType(200)]
     public async Task<IActionResult> GetSupportStaff(CancellationToken ct)
     {
-        var requestingUser = await _unitOfWork.Users.GetByIdAsync(CurrentUserId, ct);
         var users = await _unitOfWork.Users.GetByRoleAsync(UserRole.SupportStaff, ct);
         var activeUsers = users.Where(u => u.Status == Domain.Enums.UserStatus.Active);
-        if (requestingUser?.Role == UserRole.DepartmentManager)
-        {
-            activeUsers = activeUsers.Where(u => u.DepartmentId == requestingUser.DepartmentId);
-        }
         
         var dtos = activeUsers.Select(u => new UserListItemDto
         {

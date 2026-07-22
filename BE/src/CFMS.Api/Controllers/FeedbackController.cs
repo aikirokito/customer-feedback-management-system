@@ -3,13 +3,12 @@ using CFMS.Application.DTOs.Feedback;
 using CFMS.Application.Services.Interfaces;
 using CFMS.Domain.Constants;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CFMS.Api.Controllers;
 
 /// <summary>
-/// Feedback CRUD, status management, and file attachment endpoints.
+/// Feedback CRUD and status management endpoints.
 /// </summary>
 [Authorize]
 [Tags("Feedback")]
@@ -59,7 +58,7 @@ public class FeedbackController : BaseController
     }
 
     [HttpPut("{id:guid}")]
-    [Authorize(Roles = $"{RoleNames.Customer},{RoleNames.SupportStaff},{RoleNames.DepartmentManager},{RoleNames.SystemAdmin}")]
+    [Authorize(Roles = RoleNames.Customer)]
     [ProducesResponseType(200)]
     [ProducesResponseType(400)]
     [ProducesResponseType(403)]
@@ -70,7 +69,7 @@ public class FeedbackController : BaseController
     }
 
     [HttpPatch("{id:guid}/status")]
-    [Authorize(Roles = $"{RoleNames.SupportStaff},{RoleNames.DepartmentManager},{RoleNames.SystemAdmin}")]
+    [Authorize(Roles = $"{RoleNames.SupportStaff},{RoleNames.DepartmentManager}")]
     [ProducesResponseType(204)]
     [ProducesResponseType(400)]
     public async Task<IActionResult> ChangeStatus([FromRoute] Guid id, [FromBody] ChangeFeedbackStatusRequest request, CancellationToken ct)
@@ -140,24 +139,13 @@ public class FeedbackController : BaseController
     }
 
     [HttpPatch("{id:guid}/priority")]
-    [Authorize(Roles = $"{RoleNames.SupportStaff},{RoleNames.DepartmentManager},{RoleNames.SystemAdmin}")]
+    [Authorize(Roles = $"{RoleNames.SupportStaff},{RoleNames.DepartmentManager}")]
     [ProducesResponseType(200)]
     [ProducesResponseType(400)]
     public async Task<IActionResult> UpdatePriority([FromRoute] Guid id, [FromBody] UpdateFeedbackPriorityRequest request, CancellationToken ct)
     {
         var result = await _feedbackService.UpdatePriorityAsync(id, request, CurrentUserId, ct);
         return OkResponse(result, "Feedback priority updated.");
-    }
-
-    [HttpPatch("{id:guid}/rating")]
-    [Authorize(Roles = RoleNames.Customer)]
-    [ProducesResponseType(200)]
-    [ProducesResponseType(400)]
-    [ProducesResponseType(403)]
-    public async Task<IActionResult> RateFeedback([FromRoute] Guid id, [FromBody] RateFeedbackRequest request, CancellationToken ct)
-    {
-        var result = await _feedbackService.RateFeedbackAsync(id, request, CurrentUserId, ct);
-        return OkResponse(result, "Feedback rating updated.");
     }
 
     [HttpDelete("{id:guid}")]
@@ -169,29 +157,4 @@ public class FeedbackController : BaseController
         return NoContentResponse();
     }
 
-    [HttpPost("{id:guid}/attachments")]
-    [ProducesResponseType(typeof(FeedbackAttachmentDto), 201)]
-    [ProducesResponseType(400)]
-    public async Task<IActionResult> UploadAttachment([FromRoute] Guid id, IFormFile file, CancellationToken ct)
-    {
-        await using var stream = file.OpenReadStream();
-        var fileInput = new UploadedFileInput
-        {
-            FileName = file.FileName,
-            ContentType = file.ContentType,
-            Length = file.Length,
-            Content = stream
-        };
-
-        var result = await _feedbackService.UploadAttachmentAsync(id, fileInput, CurrentUserId, ct);
-        return CreatedResponse("GetFeedbackById", new { id }, result);
-    }
-
-    [HttpDelete("{id:guid}/attachments/{attachmentId:guid}")]
-    [ProducesResponseType(204)]
-    public async Task<IActionResult> DeleteAttachment([FromRoute] Guid id, [FromRoute] Guid attachmentId, CancellationToken ct)
-    {
-        await _feedbackService.DeleteAttachmentAsync(id, attachmentId, CurrentUserId, ct);
-        return NoContentResponse();
-    }
 }

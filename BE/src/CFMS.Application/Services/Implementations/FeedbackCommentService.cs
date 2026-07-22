@@ -32,12 +32,7 @@ public class FeedbackCommentService : IFeedbackCommentService
         var feedback = await _unitOfWork.Feedbacks.GetByIdWithDetailsAsync(request.FeedbackId, ct)
             ?? throw new NotFoundException(nameof(Feedback), request.FeedbackId);
         var author = await GetUserAsync(authorUserId, ct);
-        EnsureCanComment(author, feedback, authorUserId);
-
-        if (feedback.Status is FeedbackStatus.Closed or FeedbackStatus.Cancelled)
-        {
-            throw new BusinessRuleException("Comments cannot be added to closed or rejected feedback.");
-        }
+        EnsureCanMutateComment(author, feedback, authorUserId);
 
         FeedbackComment? parentComment = null;
         if (request.ParentCommentId.HasValue)
@@ -62,8 +57,8 @@ public class FeedbackCommentService : IFeedbackCommentService
         };
 
         feedback.Comments.Add(comment);
+        await _unitOfWork.Feedbacks.AddCommentAsync(comment, ct);
         feedback.UpdatedAtUtc = DateTime.UtcNow;
-        _unitOfWork.Feedbacks.Update(feedback);
         await _unitOfWork.SaveChangesAsync(ct);
 
         await _auditLogService.LogAsync(authorUserId, AuditAction.Create, nameof(FeedbackComment), comment.Id, null, $"Comment added to feedback {feedback.Id}", null, ct);
@@ -91,16 +86,11 @@ public class FeedbackCommentService : IFeedbackCommentService
         }
 
         var user = await GetUserAsync(requestingUserId, ct);
-        EnsureCanComment(user, comment.Feedback, requestingUserId);
+        EnsureCanMutateComment(user, comment.Feedback, requestingUserId);
 
-        if (user.Role != UserRole.SystemAdmin && comment.Feedback.Status is FeedbackStatus.Closed or FeedbackStatus.Cancelled)
+        if (comment.AuthorUserId != requestingUserId)
         {
-            throw new BusinessRuleException("Comments on closed or rejected feedback cannot be changed.");
-        }
-
-        if (comment.AuthorUserId != requestingUserId && user.Role != UserRole.SystemAdmin)
-        {
-            throw new ForbiddenException("Only the comment author or a system admin can update this comment.");
+            throw new ForbiddenException("Only the comment author can update this comment.");
         }
 
         comment.Content = request.Content.Trim();
@@ -122,16 +112,11 @@ public class FeedbackCommentService : IFeedbackCommentService
         }
 
         var user = await GetUserAsync(requestingUserId, ct);
-        EnsureCanComment(user, comment.Feedback, requestingUserId);
+        EnsureCanMutateComment(user, comment.Feedback, requestingUserId);
 
-        if (user.Role != UserRole.SystemAdmin && comment.Feedback.Status is FeedbackStatus.Closed or FeedbackStatus.Cancelled)
+        if (comment.AuthorUserId != requestingUserId)
         {
-            throw new BusinessRuleException("Comments on closed or rejected feedback cannot be deleted.");
-        }
-
-        if (comment.AuthorUserId != requestingUserId && user.Role != UserRole.SystemAdmin)
-        {
-            throw new ForbiddenException("Only the comment author or a system admin can delete this comment.");
+            throw new ForbiddenException("Only the comment author can delete this comment.");
         }
 
         comment.IsDeleted = true;
@@ -148,7 +133,7 @@ public class FeedbackCommentService : IFeedbackCommentService
         var feedback = await _unitOfWork.Feedbacks.GetByIdWithDetailsAsync(feedbackId, ct)
             ?? throw new NotFoundException(nameof(Feedback), feedbackId);
         var user = await GetUserAsync(requestingUserId, ct);
-        EnsureCanComment(user, feedback, requestingUserId);
+        EnsureCanView(user, feedback, requestingUserId);
 
         return _mapper.Map<IEnumerable<CommentDto>>(feedback.Comments
             .Where(c => !c.IsDeleted && c.ParentCommentId == null)
@@ -159,15 +144,22 @@ public class FeedbackCommentService : IFeedbackCommentService
         => await _unitOfWork.Users.GetByIdAsync(userId, ct)
             ?? throw new UnauthorizedException("Authenticated user was not found.");
 
-    private static void EnsureCanComment(User user, Feedback feedback, Guid userId)
+    private static void EnsureCanView(User user, Feedback feedback, Guid userId)
     {
         if (user.Role == UserRole.Customer && feedback.SubmittedByUserId != userId)
             throw new ForbiddenException("Customers can only comment on their own feedback.");
         if (user.Role == UserRole.SupportStaff && feedback.AssignedToUserId != userId)
             throw new ForbiddenException("Support staff can only comment on assigned feedback.");
-        if (user.Role == UserRole.DepartmentManager &&
-            (!user.DepartmentId.HasValue || feedback.DepartmentId != user.DepartmentId))
-            throw new ForbiddenException("Department Managers can only comment on feedback in their department.");
+    }
+
+    private static void EnsureCanMutateComment(User user, Feedback feedback, Guid userId)
+    {
+        if (user.Role != UserRole.Customer)
+            throw new ForbiddenException("Only Customers can create or modify feedback comments.");
+        if (feedback.SubmittedByUserId != userId)
+            throw new ForbiddenException("Customers can only comment on their own feedback.");
+        if (feedback.Status != FeedbackStatus.Submitted)
+            throw new BusinessRuleException("Comments can only be changed while feedback is SUBMITTED.");
     }
 
     private async Task SafeNotifyAsync(Guid userId, NotificationType type, string title, string message, Guid? entityId, string? entityType, CancellationToken ct)

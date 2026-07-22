@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth, getDefaultRouteForRole } from '../context/AuthContext';
 import './AuthPages.css';
@@ -6,7 +6,7 @@ import './AuthPages.css';
 const PUBLIC_REDIRECTS = ['/login', '/register', '/unauthorized'];
 
 const LoginPage = () => {
-  const { login, googleLogin, loading } = useAuth();
+  const { login, loading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const from = location.state?.from?.pathname;
@@ -14,54 +14,6 @@ const LoginPage = () => {
   const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [showPass, setShowPass] = useState(false);
-  const googleButtonRef = useRef(null);
-  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-
-  useEffect(() => {
-    if (!googleClientId || !googleButtonRef.current) return undefined;
-    let active = true;
-
-    const initializeGoogle = () => {
-      if (!active || !window.google?.accounts?.id || !googleButtonRef.current) return;
-      window.google.accounts.id.initialize({
-        client_id: googleClientId,
-        callback: async ({ credential }) => {
-          const result = await googleLogin(credential);
-          if (result.success) {
-            const safeFrom = from && !PUBLIC_REDIRECTS.includes(from) ? from : null;
-            navigate(safeFrom || result.redirectTo || getDefaultRouteForRole(result.user), { replace: true });
-          } else {
-            setError(result.message);
-          }
-        },
-      });
-      googleButtonRef.current.innerHTML = '';
-      window.google.accounts.id.renderButton(googleButtonRef.current, {
-        theme: 'filled_black',
-        size: 'large',
-        width: 320,
-        text: 'continue_with',
-        locale: 'vi',
-      });
-    };
-
-    let script = document.querySelector('script[data-google-identity]');
-    if (!script) {
-      script = document.createElement('script');
-      script.src = 'https://accounts.google.com/gsi/client?hl=vi';
-      script.async = true;
-      script.dataset.googleIdentity = 'true';
-      document.head.appendChild(script);
-    }
-
-    if (window.google?.accounts?.id) initializeGoogle();
-    else script.addEventListener('load', initializeGoogle);
-    return () => {
-      active = false;
-      script.removeEventListener('load', initializeGoogle);
-    };
-  }, [from, googleClientId, googleLogin, navigate]);
-
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
     setError('');
@@ -159,13 +111,6 @@ const LoginPage = () => {
             )}
           </button>
         </form>
-
-        {googleClientId && (
-          <>
-            <div className="auth-divider"><span>Hoặc</span></div>
-            <div ref={googleButtonRef} style={{ display: 'flex', justifyContent: 'center', minHeight: 44 }} />
-          </>
-        )}
 
         <div className="auth-divider">
           <span>Chưa có tài khoản?</span>

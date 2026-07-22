@@ -130,17 +130,11 @@ public class ReportService : IReportService
         var user = await _unitOfWork.Users.GetByIdAsync(requestingUserId, ct)
             ?? throw new UnauthorizedException("Authenticated user was not found.");
 
-        if (user.Role == UserRole.SystemAdmin)
-        {
-            return null;
-        }
-
-        if (user.Role != UserRole.DepartmentManager)
+        if (user.Role is not (UserRole.DepartmentManager or UserRole.SystemAdmin))
         {
             throw new ForbiddenException("Only Department Managers and System Admins can view reports.");
         }
 
-        return user.DepartmentId
-            ?? throw new ForbiddenException("Department Manager must belong to a department.");
+        return null;
     }
 }

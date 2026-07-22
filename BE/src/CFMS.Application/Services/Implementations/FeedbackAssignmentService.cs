@@ -38,22 +38,9 @@ public class FeedbackAssignmentService : IFeedbackAssignmentService
         var assigner = await _unitOfWork.Users.GetByIdAsync(assignedByUserId, ct)
             ?? throw new UnauthorizedException("Assigner was not found.");
 
-        if (assigner.Role is not (UserRole.DepartmentManager or UserRole.SystemAdmin))
+        if (assigner.Role != UserRole.DepartmentManager)
         {
-            throw new ForbiddenException("Only Department Managers or System Admins can assign feedback.");
-        }
-
-        if (assigner.Role == UserRole.DepartmentManager)
-        {
-            if (!assigner.DepartmentId.HasValue)
-            {
-                throw new ForbiddenException("Department Manager must belong to a department.");
-            }
-
-            if (feedback.DepartmentId.HasValue && feedback.DepartmentId != assigner.DepartmentId)
-            {
-                throw new ForbiddenException("Department Managers can only assign feedback in their department.");
-            }
+            throw new ForbiddenException("Only Department Managers can assign feedback.");
         }
 
         if (feedback.Status is FeedbackStatus.Closed or FeedbackStatus.Cancelled or FeedbackStatus.Resolved)
@@ -87,21 +74,7 @@ public class FeedbackAssignmentService : IFeedbackAssignmentService
             throw new BusinessRuleException("Feedback cannot be assigned to a disabled staff account.");
         }
 
-        if (!assignee.DepartmentId.HasValue)
-        {
-            throw new BusinessRuleException("Support Staff must belong to a department before feedback can be assigned.");
-        }
-
-        if (assigner.Role == UserRole.DepartmentManager && assignee.DepartmentId != assigner.DepartmentId)
-        {
-            throw new ForbiddenException("Department Managers can only assign feedback to staff in their department.");
-        }
-
-        if (feedback.DepartmentId.HasValue && feedback.DepartmentId != assignee.DepartmentId)
-        {
-            throw new BusinessRuleException("Feedback can only be assigned to staff in the same department.");
-        }
-
+        var previousStatus = feedback.Status;
         foreach (var activeAssignment in feedback.AssignmentHistory.Where(a => a.IsActive))
         {
             activeAssignment.IsActive = false;
@@ -119,21 +92,26 @@ public class FeedbackAssignmentService : IFeedbackAssignmentService
         };
 
         feedback.AssignmentHistory.Add(assignment);
+        await _unitOfWork.Feedbacks.AddAssignmentAsync(assignment, ct);
         feedback.AssignedToUserId = assignee.Id;
         feedback.DepartmentId ??= assignee.DepartmentId;
         feedback.UpdatedAtUtc = DateTime.UtcNow;
 
-        if (feedback.Status == FeedbackStatus.Submitted)
+        if (previousStatus is FeedbackStatus.Submitted or FeedbackStatus.InProgress)
         {
             feedback.Status = FeedbackStatus.Assigned;
-            feedback.StatusHistory.Add(new FeedbackStatusHistory
+            var statusHistory = new FeedbackStatusHistory
             {
                 FeedbackId = feedback.Id,
-                FromStatus = FeedbackStatus.Submitted,
+                FromStatus = previousStatus,
                 ToStatus = FeedbackStatus.Assigned,
                 ChangedByUserId = assignedByUserId,
-                Reason = "Feedback assigned to support staff."
-            });
+                Reason = previousStatus == FeedbackStatus.Submitted
+                    ? "Feedback assigned to support staff."
+                    : "Feedback reassigned to support staff and returned to ASSIGNED."
+            };
+            feedback.StatusHistory.Add(statusHistory);
+            await _unitOfWork.Feedbacks.AddStatusHistoryAsync(statusHistory, ct);
         }
 
         await _unitOfWork.SaveChangesAsync(ct);
@@ -164,15 +142,9 @@ public class FeedbackAssignmentService : IFeedbackAssignmentService
         var user = await _unitOfWork.Users.GetByIdAsync(requestingUserId, ct)
             ?? throw new UnauthorizedException("User was not found.");
 
-        if (user.Role is not (UserRole.DepartmentManager or UserRole.SystemAdmin))
+        if (user.Role != UserRole.DepartmentManager)
         {
-            throw new ForbiddenException("Only Department Managers or System Admins can unassign feedback.");
-        }
-
-        if (user.Role == UserRole.DepartmentManager &&
-            (!user.DepartmentId.HasValue || feedback.DepartmentId != user.DepartmentId))
-        {
-            throw new ForbiddenException("Department Managers can only unassign feedback in their department.");
+            throw new ForbiddenException("Only Department Managers can unassign feedback.");
         }
 
         var previousAssigneeId = feedback.AssignedToUserId;
@@ -200,14 +172,16 @@ public class FeedbackAssignmentService : IFeedbackAssignmentService
 
         if (previousStatus != FeedbackStatus.Submitted)
         {
-            feedback.StatusHistory.Add(new FeedbackStatusHistory
+            var statusHistory = new FeedbackStatusHistory
             {
                 FeedbackId = feedback.Id,
                 FromStatus = previousStatus,
                 ToStatus = FeedbackStatus.Submitted,
                 ChangedByUserId = requestingUserId,
                 Reason = "Feedback unassigned and returned to the triage queue."
-            });
+            };
+            feedback.StatusHistory.Add(statusHistory);
+            await _unitOfWork.Feedbacks.AddStatusHistoryAsync(statusHistory, ct);
         }
 
         await _unitOfWork.SaveChangesAsync(ct);
@@ -237,11 +211,6 @@ public class FeedbackAssignmentService : IFeedbackAssignmentService
             throw new ForbiddenException("Support Staff can only view assignment history for assigned feedback.");
         }
 
-        if (user.Role == UserRole.DepartmentManager &&
-            (!user.DepartmentId.HasValue || feedback.DepartmentId != user.DepartmentId))
-        {
-            throw new ForbiddenException("Department Managers can only view assignment history in their department.");
-        }
     }
 
     private async Task SafeNotifyAsync(Guid userId, NotificationType type, string title, string message, Guid? entityId, string? entityType, CancellationToken ct)

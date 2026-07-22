@@ -4,6 +4,7 @@ using CFMS.Application.Common.Interfaces;
 using CFMS.Application.Common.Models;
 using CFMS.Application.DTOs.Users;
 using CFMS.Application.Services.Interfaces;
+using CFMS.Domain.Entities;
 using CFMS.Domain.Enums;
 
 namespace CFMS.Application.Services.Implementations;
@@ -13,12 +14,18 @@ public class UserService : IUserService
     private readonly IUnitOfWork _unitOfWork;
     private readonly IMapper _mapper;
     private readonly IAuditLogService _auditLogService;
+    private readonly IPasswordHashingService _passwordHashingService;
 
-    public UserService(IUnitOfWork unitOfWork, IMapper mapper, IAuditLogService auditLogService)
+    public UserService(
+        IUnitOfWork unitOfWork,
+        IMapper mapper,
+        IAuditLogService auditLogService,
+        IPasswordHashingService passwordHashingService)
     {
         _unitOfWork = unitOfWork;
         _mapper = mapper;
         _auditLogService = auditLogService;
+        _passwordHashingService = passwordHashingService;
     }
 
     // -------------------------------------------------------------------------
@@ -36,6 +43,58 @@ public class UserService : IUserService
     // -------------------------------------------------------------------------
     // System Admin user management
     // -------------------------------------------------------------------------
+
+    public async Task<UserDetailDto> CreateUserAsync(
+        CreateUserRequest request,
+        Guid actorUserId,
+        CancellationToken ct = default)
+    {
+        var actor = await _unitOfWork.Users.GetByIdAsync(actorUserId, ct)
+            ?? throw new UnauthorizedException("Authenticated user was not found.");
+        if (actor.Role != UserRole.SystemAdmin)
+        {
+            throw new ForbiddenException("Only System Admins can create Staff or Manager accounts.");
+        }
+
+        if (request.Role is not (UserRole.SupportStaff or UserRole.DepartmentManager))
+        {
+            throw new BusinessRuleException("Admin can create only Staff or Manager accounts.");
+        }
+
+        var normalizedEmail = request.Email.Trim().ToLowerInvariant();
+        if (await _unitOfWork.Users.IsEmailTakenAsync(normalizedEmail, ct))
+        {
+            throw new ConflictException($"Email '{normalizedEmail}' is already registered.");
+        }
+
+        var user = new User
+        {
+            Email = normalizedEmail,
+            PasswordHash = _passwordHashingService.HashPassword(request.Password),
+            FirstName = request.FirstName.Trim(),
+            LastName = request.LastName.Trim(),
+            PhoneNumber = string.IsNullOrWhiteSpace(request.PhoneNumber) ? null : request.PhoneNumber.Trim(),
+            Role = request.Role,
+            Status = UserStatus.Active,
+            DepartmentId = null,
+            IsEmailVerified = false
+        };
+
+        await _unitOfWork.Users.AddAsync(user, ct);
+        await _unitOfWork.SaveChangesAsync(ct);
+
+        await _auditLogService.LogAsync(
+            actorUserId,
+            AuditAction.Create,
+            nameof(User),
+            user.Id,
+            null,
+            $"Email={user.Email};Role={user.Role};Status={user.Status}",
+            null,
+            ct);
+
+        return _mapper.Map<UserDetailDto>(user);
+    }
 
     public async Task<PagedResult<UserListItemDto>> GetUsersAsync(int page, int pageSize, UserRole? role = null, string? searchTerm = null, CancellationToken ct = default)
     {

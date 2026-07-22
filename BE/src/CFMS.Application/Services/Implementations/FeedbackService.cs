@@ -47,9 +47,6 @@ public class FeedbackService : IFeedbackService
 
         Guid? submittedByUserId = user.Role == UserRole.Customer ? requestingUserId : null;
         Guid? assignedToUserId = user.Role == UserRole.SupportStaff ? requestingUserId : filter.AssignedToUserId;
-        Guid? departmentId = user.Role == UserRole.DepartmentManager
-            ? user.DepartmentId ?? throw new ForbiddenException("Department Manager must belong to a department.")
-            : null;
 
         var (items, totalCount) = await _unitOfWork.Feedbacks.GetPagedAsync(
             page,
@@ -59,7 +56,7 @@ public class FeedbackService : IFeedbackService
             filter.Priority,
             submittedByUserId ?? filter.SubmittedByUserId,
             assignedToUserId,
-            departmentId,
+            null,
             filter.SearchTerm,
             filter.FromDate,
             filter.ToDate,
@@ -99,6 +96,11 @@ public class FeedbackService : IFeedbackService
     /// <summary>Tạo phản hồi mới ở trạng thái SUBMITTED cho Customer đã xác thực.</summary>
     public async Task<FeedbackDetailDto> CreateFeedbackAsync(CreateFeedbackRequest request, Guid submittedByUserId, CancellationToken ct = default)
     {
+        if (request.Rating is null or < 1 or > 5)
+        {
+            throw new ValidationException(["Rating is required and must be between 1 and 5."]);
+        }
+
         var user = await GetCurrentUserAsync(submittedByUserId, ct);
         if (user.Role != UserRole.Customer)
         {
@@ -123,6 +125,7 @@ public class FeedbackService : IFeedbackService
             CategoryId = category.Id,
             Category = category,
             DepartmentId = category.DepartmentId,
+            Rating = request.Rating.Value,
             Status = FeedbackStatus.Submitted,
             Priority = FeedbackPriority.Medium,
             SubmittedByUserId = submittedByUserId
@@ -152,35 +155,26 @@ public class FeedbackService : IFeedbackService
         return result;
     }
 
-    /// <summary>
-    /// Cập nhật nội dung phản hồi. Customer chỉ được sửa phiếu của chính mình khi còn SUBMITTED;
-    /// nhân viên quản lý vẫn phải thỏa điều kiện phạm vi xử lý.
-    /// </summary>
+    /// <summary>Updates the editable fields of a Customer-owned SUBMITTED feedback.</summary>
     public async Task<FeedbackDetailDto> UpdateFeedbackAsync(Guid id, UpdateFeedbackRequest request, Guid requestingUserId, CancellationToken ct = default)
     {
+        if (request.Rating is null or < 1 or > 5)
+        {
+            throw new ValidationException(["Rating is required and must be between 1 and 5."]);
+        }
+
         var feedback = await _unitOfWork.Feedbacks.GetByIdWithDetailsAsync(id, ct)
             ?? throw new NotFoundException(nameof(Feedback), id);
         var user = await GetCurrentUserAsync(requestingUserId, ct);
 
-        if (user.Role == UserRole.Customer)
-        {
-            if (feedback.SubmittedByUserId != requestingUserId)
-                throw new ForbiddenException("Customers can only edit their own feedback.");
-            if (feedback.Status != FeedbackStatus.Submitted)
-                throw new BusinessRuleException("Customers can only edit feedback while it is SUBMITTED.");
-        }
-
-        if (user.Role != UserRole.Customer)
-            EnsureCanHandleFeedback(user, feedback, requestingUserId);
-
-        if (feedback.Status is FeedbackStatus.Closed or FeedbackStatus.Cancelled)
-        {
-            throw new BusinessRuleException("Closed or rejected feedback content cannot be edited.");
-        }
+        if (user.Role != UserRole.Customer || feedback.SubmittedByUserId != requestingUserId)
+            throw new ForbiddenException("Customers can only edit their own feedback.");
+        if (feedback.Status != FeedbackStatus.Submitted)
+            throw new BusinessRuleException("Customers can only edit feedback while it is SUBMITTED.");
 
         var category = await _unitOfWork.FeedbackCategories.GetByIdAsync(request.CategoryId, ct)
             ?? throw new NotFoundException(nameof(FeedbackCategoryEntity), request.CategoryId);
-        if (!category.IsActive && category.Id != feedback.CategoryId)
+        if (!category.IsActive)
         {
             throw new BusinessRuleException("Disabled categories cannot be selected for feedback.");
         }
@@ -190,40 +184,18 @@ public class FeedbackService : IFeedbackService
             throw new BusinessRuleException("Categories in disabled departments cannot be selected for feedback.");
         }
 
-        if (user.Role is not (UserRole.SystemAdmin or UserRole.Customer) && category.DepartmentId != user.DepartmentId)
-        {
-            throw new ForbiddenException("Staff can only move feedback within their own department.");
-        }
-
-        if (feedback.AssignedToUserId.HasValue)
-        {
-            var assigneeDepartmentId = feedback.AssignedToUser?.DepartmentId;
-            if (!assigneeDepartmentId.HasValue)
-            {
-                assigneeDepartmentId = (await _unitOfWork.Users.GetByIdAsync(feedback.AssignedToUserId.Value, ct))?.DepartmentId;
-            }
-
-            if (assigneeDepartmentId != category.DepartmentId)
-            {
-                throw new BusinessRuleException("Unassign or reassign the feedback before moving it to another department.");
-            }
-        }
-
-        var oldValues = $"Title={feedback.Title};CategoryId={feedback.CategoryId};Priority={feedback.Priority}";
+        var oldValues = $"Title={feedback.Title};CategoryId={feedback.CategoryId};Rating={feedback.Rating}";
         feedback.Title = request.Title.Trim();
         feedback.Description = request.Description.Trim();
         feedback.CategoryId = category.Id;
         feedback.Category = category;
         feedback.DepartmentId = category.DepartmentId;
-        // Customer không được tự thay đổi mức ưu tiên; Manager/Staff mới có quyền này.
-        if (user.Role != UserRole.Customer)
-            feedback.Priority = request.Priority;
+        feedback.Rating = request.Rating.Value;
         feedback.UpdatedAtUtc = DateTime.UtcNow;
 
-        _unitOfWork.Feedbacks.Update(feedback);
         await _unitOfWork.SaveChangesAsync(ct);
 
-        await _auditLogService.LogAsync(requestingUserId, AuditAction.Update, nameof(Feedback), feedback.Id, oldValues, $"Title={feedback.Title};CategoryId={feedback.CategoryId};Priority={feedback.Priority}", null, ct);
+        await _auditLogService.LogAsync(requestingUserId, AuditAction.Update, nameof(Feedback), feedback.Id, oldValues, $"Title={feedback.Title};CategoryId={feedback.CategoryId};Rating={feedback.Rating}", null, ct);
 
         var detail = await _unitOfWork.Feedbacks.GetByIdWithDetailsAsync(feedback.Id, ct) ?? feedback;
         var result = _mapper.Map<FeedbackDetailDto>(detail);
@@ -236,65 +208,25 @@ public class FeedbackService : IFeedbackService
         var feedback = await _unitOfWork.Feedbacks.GetByIdWithDetailsAsync(id, ct)
             ?? throw new NotFoundException(nameof(Feedback), id);
         var user = await GetCurrentUserAsync(requestingUserId, ct);
+        if (user.Role is not (UserRole.SupportStaff or UserRole.DepartmentManager))
+            throw new ForbiddenException("Only Staff or Managers can update feedback priority.");
         EnsureCanHandleFeedback(user, feedback, requestingUserId);
 
-        if (feedback.Status is FeedbackStatus.Closed or FeedbackStatus.Cancelled)
+        if (feedback.Status is FeedbackStatus.Resolved or FeedbackStatus.Closed or FeedbackStatus.Cancelled)
         {
-            throw new BusinessRuleException("Priority cannot be changed on closed or rejected feedback.");
+            throw new BusinessRuleException("Priority cannot be changed on read-only feedback.");
         }
 
         var oldPriority = feedback.Priority;
         feedback.Priority = request.Priority;
         feedback.UpdatedAtUtc = DateTime.UtcNow;
 
-        _unitOfWork.Feedbacks.Update(feedback);
         await _unitOfWork.SaveChangesAsync(ct);
 
         await _auditLogService.LogAsync(requestingUserId, AuditAction.Update, nameof(Feedback), feedback.Id, oldPriority.ToString(), request.Priority.ToString(), null, ct);
 
         var detail = await _unitOfWork.Feedbacks.GetByIdWithDetailsAsync(feedback.Id, ct) ?? feedback;
         var result = _mapper.Map<FeedbackDetailDto>(detail);
-        await PopulateAttachmentUrlsAsync(detail, result);
-        return result;
-    }
-
-    public async Task<FeedbackDetailDto> RateFeedbackAsync(Guid id, RateFeedbackRequest request, Guid requestingUserId, CancellationToken ct = default)
-    {
-        var feedback = await _unitOfWork.Feedbacks.GetByIdWithDetailsAsync(id, ct)
-            ?? throw new NotFoundException(nameof(Feedback), id);
-        var user = await GetCurrentUserAsync(requestingUserId, ct);
-
-        if (user.Role != UserRole.Customer || feedback.SubmittedByUserId != requestingUserId)
-        {
-            throw new ForbiddenException("Only the customer who submitted feedback can rate it.");
-        }
-
-        if (feedback.Status is not (FeedbackStatus.Resolved or FeedbackStatus.Closed))
-        {
-            throw new BusinessRuleException("Feedback can only be rated after it is resolved or closed.");
-        }
-
-        var previousRating = feedback.Rating;
-        feedback.Rating = request.Rating;
-        feedback.UpdatedAtUtc = DateTime.UtcNow;
-        _unitOfWork.Feedbacks.Update(feedback);
-        await _unitOfWork.SaveChangesAsync(ct);
-
-        await _auditLogService.LogAsync(
-            requestingUserId,
-            AuditAction.Update,
-            nameof(Feedback),
-            feedback.Id,
-            $"Rating={previousRating}",
-            $"Rating={feedback.Rating}",
-            null,
-            ct);
-
-        var detail = await _unitOfWork.Feedbacks.GetByIdWithDetailsAsync(feedback.Id, ct) ?? feedback;
-        var result = _mapper.Map<FeedbackDetailDto>(detail);
-        result.Responses = result.Responses.Where(response => !response.IsInternal).OrderBy(response => response.CreatedAtUtc).ToList();
-        result.Comments = result.Comments.Where(comment => !comment.ParentCommentId.HasValue).OrderBy(comment => comment.CreatedAtUtc).ToList();
-        result.StatusHistory = result.StatusHistory.OrderBy(history => history.ChangedAtUtc).ToList();
         await PopulateAttachmentUrlsAsync(detail, result);
         return result;
     }
@@ -324,6 +256,15 @@ public class FeedbackService : IFeedbackService
             throw new BusinessRuleException("Assign a support staff member before moving feedback to Assigned.");
         }
 
+        if (request.NewStatus == FeedbackStatus.Resolved && !feedback.Responses.Any(response =>
+                response.FeedbackId == feedback.Id &&
+                !response.IsDeleted &&
+                !response.IsInternal &&
+                response.RespondedByUser?.Role == UserRole.SupportStaff))
+        {
+            throw new BusinessRuleException("Feedback cannot be resolved until a Staff response has been saved.");
+        }
+
         var oldStatus = feedback.Status;
         feedback.Status = request.NewStatus;
         feedback.UpdatedAtUtc = DateTime.UtcNow;
@@ -342,16 +283,17 @@ public class FeedbackService : IFeedbackService
             feedback.ClosedAtUtc = DateTime.UtcNow;
         }
 
-        feedback.StatusHistory.Add(new FeedbackStatusHistory
+        var statusHistory = new FeedbackStatusHistory
         {
             FeedbackId = feedback.Id,
             FromStatus = oldStatus,
             ToStatus = request.NewStatus,
             ChangedByUserId = requestingUserId,
             Reason = request.Reason
-        });
+        };
+        feedback.StatusHistory.Add(statusHistory);
+        await _unitOfWork.Feedbacks.AddStatusHistoryAsync(statusHistory, ct);
 
-        _unitOfWork.Feedbacks.Update(feedback);
         await _unitOfWork.SaveChangesAsync(ct);
 
         await _auditLogService.LogAsync(requestingUserId, AuditAction.StatusChange, nameof(Feedback), feedback.Id, oldStatus.ToString(), request.NewStatus.ToString(), null, ct);
@@ -396,16 +338,17 @@ public class FeedbackService : IFeedbackService
 
         feedback.Status = FeedbackStatus.Cancelled;
         feedback.UpdatedAtUtc = DateTime.UtcNow;
-        feedback.StatusHistory.Add(new FeedbackStatusHistory
+        var statusHistory = new FeedbackStatusHistory
         {
             FeedbackId = feedback.Id,
             FromStatus = FeedbackStatus.Submitted,
             ToStatus = FeedbackStatus.Cancelled,
             ChangedByUserId = customerId,
             Reason = "Cancelled by customer before assignment."
-        });
+        };
+        feedback.StatusHistory.Add(statusHistory);
+        await _unitOfWork.Feedbacks.AddStatusHistoryAsync(statusHistory, ct);
 
-        _unitOfWork.Feedbacks.Update(feedback);
         await _unitOfWork.SaveChangesAsync(ct);
         await _auditLogService.LogAsync(customerId, AuditAction.StatusChange, nameof(Feedback), feedback.Id,
             FeedbackStatus.Submitted.ToString(), FeedbackStatus.Cancelled.ToString(), null, ct);
@@ -439,7 +382,6 @@ public class FeedbackService : IFeedbackService
         feedback.DeletedByUserId = requestingUserId;
         feedback.UpdatedAtUtc = DateTime.UtcNow;
 
-        _unitOfWork.Feedbacks.Update(feedback);
         await _unitOfWork.SaveChangesAsync(ct);
 
         await _auditLogService.LogAsync(requestingUserId, AuditAction.Delete, nameof(Feedback), feedback.Id, null, $"Deleted feedback '{feedback.Title}'", null, ct);
@@ -451,11 +393,7 @@ public class FeedbackService : IFeedbackService
             ?? throw new NotFoundException(nameof(Feedback), feedbackId);
         var user = await GetCurrentUserAsync(uploadedByUserId, ct);
         EnsureCanViewFeedback(user, feedback, uploadedByUserId);
-
-        if (feedback.Status is FeedbackStatus.Closed or FeedbackStatus.Cancelled)
-        {
-            throw new BusinessRuleException("Attachments cannot be added to closed or rejected feedback.");
-        }
+        EnsureCanModifyAttachments(user, feedback, uploadedByUserId);
 
         if (file.Length <= 0)
         {
@@ -513,8 +451,8 @@ public class FeedbackService : IFeedbackService
         try
         {
             feedback.Attachments.Add(attachment);
+            await _unitOfWork.Feedbacks.AddAttachmentAsync(attachment, ct);
             feedback.UpdatedAtUtc = DateTime.UtcNow;
-            _unitOfWork.Feedbacks.Update(feedback);
             await _unitOfWork.SaveChangesAsync(ct);
         }
         catch
@@ -550,21 +488,16 @@ public class FeedbackService : IFeedbackService
 
         var user = await GetCurrentUserAsync(requestingUserId, ct);
         EnsureCanViewFeedback(user, feedback, requestingUserId);
+        EnsureCanModifyAttachments(user, feedback, requestingUserId);
 
-        if (user.Role != UserRole.SystemAdmin && feedback.Status is FeedbackStatus.Closed or FeedbackStatus.Cancelled)
+        if (attachment.UploadedByUserId != requestingUserId)
         {
-            throw new BusinessRuleException("Attachments on closed or rejected feedback cannot be deleted.");
-        }
-
-        if (user.Role != UserRole.SystemAdmin && attachment.UploadedByUserId != requestingUserId)
-        {
-            throw new ForbiddenException("Only the attachment uploader or a system admin can delete this attachment.");
+            throw new ForbiddenException("Only the attachment uploader can delete this attachment.");
         }
 
         await _storageService.DeleteFileAsync(attachment.StorageKey, AttachmentBucketName, ct);
         _unitOfWork.Feedbacks.RemoveAttachment(attachment);
         feedback.UpdatedAtUtc = DateTime.UtcNow;
-        _unitOfWork.Feedbacks.Update(feedback);
         await _unitOfWork.SaveChangesAsync(ct);
 
         await _auditLogService.LogAsync(requestingUserId, AuditAction.Delete, nameof(FeedbackAttachment), attachment.Id, null, $"Deleted attachment '{attachment.FileName}'", null, ct);
@@ -586,11 +519,6 @@ public class FeedbackService : IFeedbackService
             throw new ForbiddenException("Support staff can only access assigned feedback.");
         }
 
-        if (user.Role == UserRole.DepartmentManager &&
-            (!user.DepartmentId.HasValue || feedback.DepartmentId != user.DepartmentId))
-        {
-            throw new ForbiddenException("Department Managers can only access feedback in their department.");
-        }
     }
 
     private static void EnsureCanHandleFeedback(User user, Feedback feedback, Guid userId)
@@ -600,16 +528,33 @@ public class FeedbackService : IFeedbackService
             throw new ForbiddenException("Support staff can only handle assigned feedback.");
         }
 
-        if (user.Role == UserRole.DepartmentManager &&
-            (!user.DepartmentId.HasValue || feedback.DepartmentId != user.DepartmentId))
-        {
-            throw new ForbiddenException("Department Managers can only handle feedback in their department.");
-        }
-
         if (user.Role == UserRole.Customer)
         {
             throw new ForbiddenException("Customers cannot perform this internal workflow action.");
         }
+    }
+
+    private static void EnsureCanModifyAttachments(User user, Feedback feedback, Guid userId)
+    {
+        if (user.Role == UserRole.Customer)
+        {
+            if (feedback.SubmittedByUserId != userId)
+                throw new ForbiddenException("Customers can only modify attachments on their own feedback.");
+            if (feedback.Status != FeedbackStatus.Submitted)
+                throw new BusinessRuleException("Customer attachments can only be changed while feedback is SUBMITTED.");
+            return;
+        }
+
+        if (user.Role == UserRole.SupportStaff)
+        {
+            if (feedback.AssignedToUserId != userId)
+                throw new ForbiddenException("Support staff can only modify attachments on assigned feedback.");
+            if (feedback.Status is not (FeedbackStatus.Assigned or FeedbackStatus.InProgress))
+                throw new BusinessRuleException("Staff attachments can only be changed while feedback is ASSIGNED or IN_PROGRESS.");
+            return;
+        }
+
+        throw new ForbiddenException("Managers and Admins cannot modify feedback attachments.");
     }
 
     private async Task SafeNotifyAsync(Guid userId, NotificationType type, string title, string message, Guid? entityId, string? entityType, CancellationToken ct)

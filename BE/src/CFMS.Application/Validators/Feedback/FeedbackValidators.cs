@@ -9,15 +9,27 @@ public class CreateFeedbackRequestValidator : AbstractValidator<CreateFeedbackRe
     public CreateFeedbackRequestValidator()
     {
         RuleFor(x => x.Title)
-            .NotEmpty().WithMessage("Title is required.")
-            .MaximumLength(FeedbackConstants.TitleMaxLength);
+            .Cascade(CascadeMode.Stop)
+            .Must(value => !string.IsNullOrWhiteSpace(value)).WithMessage("Title is required.")
+            .Must(value => value.Trim().Length >= FeedbackConstants.TitleMinLength)
+            .WithMessage($"Title must be at least {FeedbackConstants.TitleMinLength} characters.")
+            .Must(value => value.Trim().Length <= FeedbackConstants.TitleMaxLength)
+            .WithMessage($"Title must not exceed {FeedbackConstants.TitleMaxLength} characters.");
 
         RuleFor(x => x.Description)
-            .NotEmpty().WithMessage("Description is required.")
-            .MaximumLength(FeedbackConstants.DescriptionMaxLength);
+            .Cascade(CascadeMode.Stop)
+            .Must(value => !string.IsNullOrWhiteSpace(value)).WithMessage("Description is required.")
+            .Must(value => value.Trim().Length >= FeedbackConstants.DescriptionMinLength)
+            .WithMessage($"Description must be at least {FeedbackConstants.DescriptionMinLength} characters.")
+            .Must(value => value.Trim().Length <= FeedbackConstants.DescriptionMaxLength)
+            .WithMessage($"Description must not exceed {FeedbackConstants.DescriptionMaxLength} characters.");
 
         RuleFor(x => x.CategoryId)
             .NotEmpty().WithMessage("Category is required.");
+
+        RuleFor(x => x.Rating)
+            .NotNull().WithMessage("Rating is required.")
+            .InclusiveBetween(1, 5).WithMessage("Rating must be between 1 and 5.");
     }
 }
 
@@ -25,10 +37,25 @@ public class UpdateFeedbackRequestValidator : AbstractValidator<UpdateFeedbackRe
 {
     public UpdateFeedbackRequestValidator()
     {
-        RuleFor(x => x.Title).NotEmpty().MaximumLength(FeedbackConstants.TitleMaxLength);
-        RuleFor(x => x.Description).NotEmpty().MaximumLength(FeedbackConstants.DescriptionMaxLength);
+        RuleFor(x => x.Title)
+            .Cascade(CascadeMode.Stop)
+            .Must(value => !string.IsNullOrWhiteSpace(value)).WithMessage("Title is required.")
+            .Must(value => value.Trim().Length >= FeedbackConstants.TitleMinLength)
+            .WithMessage($"Title must be at least {FeedbackConstants.TitleMinLength} characters.")
+            .Must(value => value.Trim().Length <= FeedbackConstants.TitleMaxLength)
+            .WithMessage($"Title must not exceed {FeedbackConstants.TitleMaxLength} characters.");
+
+        RuleFor(x => x.Description)
+            .Cascade(CascadeMode.Stop)
+            .Must(value => !string.IsNullOrWhiteSpace(value)).WithMessage("Description is required.")
+            .Must(value => value.Trim().Length >= FeedbackConstants.DescriptionMinLength)
+            .WithMessage($"Description must be at least {FeedbackConstants.DescriptionMinLength} characters.")
+            .Must(value => value.Trim().Length <= FeedbackConstants.DescriptionMaxLength)
+            .WithMessage($"Description must not exceed {FeedbackConstants.DescriptionMaxLength} characters.");
         RuleFor(x => x.CategoryId).NotEmpty().WithMessage("Category is required.");
-        RuleFor(x => x.Priority).IsInEnum();
+        RuleFor(x => x.Rating)
+            .NotNull().WithMessage("Rating is required.")
+            .InclusiveBetween(1, 5).WithMessage("Rating must be between 1 and 5.");
     }
 }
 
@@ -37,16 +64,6 @@ public class UpdateFeedbackPriorityRequestValidator : AbstractValidator<UpdateFe
     public UpdateFeedbackPriorityRequestValidator()
     {
         RuleFor(x => x.Priority).IsInEnum();
-    }
-}
-
-public class RateFeedbackRequestValidator : AbstractValidator<RateFeedbackRequest>
-{
-    public RateFeedbackRequestValidator()
-    {
-        RuleFor(x => x.Rating)
-            .InclusiveBetween(1, 5)
-            .WithMessage("Rating must be between 1 and 5.");
     }
 }
 

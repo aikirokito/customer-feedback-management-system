@@ -137,7 +137,7 @@ builder.Services.AddSwaggerGen(options =>
     {
         Title = "Customer Feedback Management System API",
         Version = "v1",
-        Description = "RESTful API for the CFMS application. Supports JWT authentication and Google OAuth.",
+        Description = "RESTful API for the CFMS application. Supports JWT authentication.",
     });
 
     // Enable JWT bearer token input in Swagger UI

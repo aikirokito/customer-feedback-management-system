@@ -7,7 +7,6 @@ public class AssignFeedbackRequestValidator : AbstractValidator<AssignFeedbackRe
 {
     public AssignFeedbackRequestValidator()
     {
-        RuleFor(x => x.FeedbackId).NotEmpty();
         RuleFor(x => x.AssignToUserId).NotEmpty();
         RuleFor(x => x.Note).MaximumLength(1000).When(x => x.Note != null);
     }
