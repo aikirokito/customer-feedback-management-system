@@ -2,6 +2,8 @@ using AutoMapper;
 using CFMS.Application.Common.Exceptions;
 using CFMS.Application.Common.Interfaces;
 using CFMS.Application.DTOs.Assignments;
+using CFMS.Application.DTOs.Feedback;
+using CFMS.Application.DTOs.Responses;
 using CFMS.Application.Services.Implementations;
 using CFMS.Application.Services.Interfaces;
 using CFMS.Domain.Entities;
@@ -114,6 +116,223 @@ public class FeedbackAssignmentServiceTests
         {
             previousAssignment.IsActive.Should().BeFalse();
         }
+    }
+
+    [Fact]
+    public async Task ReassignFeedback_WhenAssigned_ChangesActiveStaffWithoutChangingStatusOrHistory()
+    {
+        var manager = new User { Id = Guid.NewGuid(), Role = UserRole.DepartmentManager, Status = UserStatus.Active };
+        var previousStaff = new User { Id = Guid.NewGuid(), Role = UserRole.SupportStaff, Status = UserStatus.Active };
+        var newStaff = new User { Id = Guid.NewGuid(), Role = UserRole.SupportStaff, Status = UserStatus.Active };
+        var previousAssignment = new FeedbackAssignment
+        {
+            AssignedToUserId = previousStaff.Id,
+            AssignedByUserId = manager.Id,
+            IsActive = true
+        };
+        var feedback = new Domain.Entities.Feedback
+        {
+            Id = Guid.NewGuid(),
+            Title = "Assigned feedback",
+            SubmittedByUserId = Guid.NewGuid(),
+            AssignedToUserId = previousStaff.Id,
+            Status = FeedbackStatus.Assigned,
+            AssignmentHistory = new List<FeedbackAssignment> { previousAssignment }
+        };
+        SetupAssignmentActors(feedback, manager, previousStaff, newStaff);
+
+        await CreateService().AssignFeedbackAsync(new AssignFeedbackRequest
+        {
+            FeedbackId = feedback.Id,
+            AssignToUserId = newStaff.Id
+        }, manager.Id);
+
+        feedback.Status.Should().Be(FeedbackStatus.Assigned);
+        feedback.AssignedToUserId.Should().Be(newStaff.Id);
+        previousAssignment.IsActive.Should().BeFalse();
+        feedback.AssignmentHistory.Should().ContainSingle(assignment =>
+            assignment.IsActive && assignment.AssignedToUserId == newStaff.Id);
+        feedback.StatusHistory.Should().BeEmpty();
+        _feedbacks.Verify(repository => repository.AddStatusHistoryAsync(
+            It.IsAny<FeedbackStatusHistory>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task ReassignFeedback_WhenInProgress_ResetsToAssignedAndPreservesSubmissionFields()
+    {
+        var manager = new User { Id = Guid.NewGuid(), Role = UserRole.DepartmentManager, Status = UserStatus.Active };
+        var previousStaff = new User { Id = Guid.NewGuid(), Role = UserRole.SupportStaff, Status = UserStatus.Active };
+        var newStaff = new User { Id = Guid.NewGuid(), Role = UserRole.SupportStaff, Status = UserStatus.Active };
+        var previousAssignment = new FeedbackAssignment
+        {
+            AssignedToUserId = previousStaff.Id,
+            AssignedByUserId = manager.Id,
+            IsActive = true
+        };
+        var originalUpdatedAt = DateTime.UtcNow.AddDays(-1);
+        var ownerId = Guid.NewGuid();
+        var categoryId = Guid.NewGuid();
+        var feedback = new Domain.Entities.Feedback
+        {
+            Id = Guid.NewGuid(),
+            Title = "Keep this title",
+            Description = "Keep this description",
+            SubmittedByUserId = ownerId,
+            CategoryId = categoryId,
+            Rating = 4,
+            Priority = FeedbackPriority.High,
+            AssignedToUserId = previousStaff.Id,
+            Status = FeedbackStatus.InProgress,
+            UpdatedAtUtc = originalUpdatedAt,
+            AssignmentHistory = new List<FeedbackAssignment> { previousAssignment }
+        };
+        SetupAssignmentActors(feedback, manager, previousStaff, newStaff);
+
+        await CreateService().AssignFeedbackAsync(new AssignFeedbackRequest
+        {
+            FeedbackId = feedback.Id,
+            AssignToUserId = newStaff.Id
+        }, manager.Id);
+
+        feedback.Status.Should().Be(FeedbackStatus.Assigned);
+        feedback.AssignedToUserId.Should().Be(newStaff.Id);
+        previousAssignment.IsActive.Should().BeFalse();
+        feedback.AssignmentHistory.Should().ContainSingle(assignment =>
+            assignment.IsActive && assignment.AssignedToUserId == newStaff.Id);
+        feedback.StatusHistory.Should().ContainSingle(history =>
+            history.FromStatus == FeedbackStatus.InProgress &&
+            history.ToStatus == FeedbackStatus.Assigned &&
+            history.ChangedByUserId == manager.Id);
+        _feedbacks.Verify(repository => repository.AddStatusHistoryAsync(
+            It.Is<FeedbackStatusHistory>(history =>
+                history.FromStatus == FeedbackStatus.InProgress &&
+                history.ToStatus == FeedbackStatus.Assigned),
+            It.IsAny<CancellationToken>()), Times.Once);
+        feedback.UpdatedAtUtc.Should().BeAfter(originalUpdatedAt);
+        feedback.Title.Should().Be("Keep this title");
+        feedback.Description.Should().Be("Keep this description");
+        feedback.SubmittedByUserId.Should().Be(ownerId);
+        feedback.CategoryId.Should().Be(categoryId);
+        feedback.Rating.Should().Be(4);
+        feedback.Priority.Should().Be(FeedbackPriority.High);
+    }
+
+    [Fact]
+    public async Task ReassignFeedback_PreviousStaffCannotProcessOrRespondAndNewStaffCanProceed()
+    {
+        var manager = new User { Id = Guid.NewGuid(), Role = UserRole.DepartmentManager, Status = UserStatus.Active };
+        var previousStaff = new User { Id = Guid.NewGuid(), Role = UserRole.SupportStaff, Status = UserStatus.Active };
+        var newStaff = new User { Id = Guid.NewGuid(), Role = UserRole.SupportStaff, Status = UserStatus.Active };
+        var feedback = new Domain.Entities.Feedback
+        {
+            Id = Guid.NewGuid(),
+            Title = "Authorization follows reassignment",
+            SubmittedByUserId = Guid.NewGuid(),
+            AssignedToUserId = previousStaff.Id,
+            Status = FeedbackStatus.InProgress,
+            AssignmentHistory = new List<FeedbackAssignment>
+            {
+                new()
+                {
+                    AssignedToUserId = previousStaff.Id,
+                    AssignedByUserId = manager.Id,
+                    IsActive = true
+                }
+            }
+        };
+        SetupAssignmentActors(feedback, manager, previousStaff, newStaff);
+        await CreateService().AssignFeedbackAsync(new AssignFeedbackRequest
+        {
+            FeedbackId = feedback.Id,
+            AssignToUserId = newStaff.Id
+        }, manager.Id);
+        var workflowService = new FeedbackService(
+            _unitOfWork.Object,
+            _mapper.Object,
+            _notifications.Object,
+            _auditLogs.Object,
+            Mock.Of<ISupabaseStorageService>());
+        var responseService = new FeedbackResponseService(
+            _unitOfWork.Object,
+            _mapper.Object,
+            _notifications.Object,
+            _auditLogs.Object);
+
+        var previousStaffAction = () => workflowService.ChangeStatusAsync(feedback.Id, new ChangeFeedbackStatusRequest
+        {
+            NewStatus = FeedbackStatus.InProgress
+        }, previousStaff.Id);
+
+        await previousStaffAction.Should().ThrowAsync<ForbiddenException>()
+            .WithMessage("*assigned feedback*");
+        var previousStaffResponseAction = () => responseService.CreateResponseAsync(new CreateResponseRequest
+        {
+            FeedbackId = feedback.Id,
+            Content = "This response must be rejected."
+        }, previousStaff.Id);
+        await previousStaffResponseAction.Should().ThrowAsync<ForbiddenException>()
+            .WithMessage("*assigned feedback*");
+        feedback.Status.Should().Be(FeedbackStatus.Assigned);
+
+        await workflowService.ChangeStatusAsync(feedback.Id, new ChangeFeedbackStatusRequest
+        {
+            NewStatus = FeedbackStatus.InProgress
+        }, newStaff.Id);
+
+        feedback.Status.Should().Be(FeedbackStatus.InProgress);
+        feedback.StatusHistory.Should().ContainSingle(history =>
+            history.FromStatus == FeedbackStatus.Assigned &&
+            history.ToStatus == FeedbackStatus.InProgress &&
+            history.ChangedByUserId == newStaff.Id);
+
+        await responseService.CreateResponseAsync(new CreateResponseRequest
+        {
+            FeedbackId = feedback.Id,
+            Content = "The newly assigned Staff can respond."
+        }, newStaff.Id);
+
+        feedback.Responses.Should().ContainSingle(response => response.RespondedByUserId == newStaff.Id);
+    }
+
+    [Fact]
+    public async Task ReassignFeedback_InvalidAssigneeDoesNotPartiallyChangeAggregateOrSave()
+    {
+        var manager = new User { Id = Guid.NewGuid(), Role = UserRole.DepartmentManager, Status = UserStatus.Active };
+        var previousStaff = new User { Id = Guid.NewGuid(), Role = UserRole.SupportStaff, Status = UserStatus.Active };
+        var invalidAssignee = new User { Id = Guid.NewGuid(), Role = UserRole.Customer, Status = UserStatus.Active };
+        var previousAssignment = new FeedbackAssignment
+        {
+            AssignedToUserId = previousStaff.Id,
+            AssignedByUserId = manager.Id,
+            IsActive = true
+        };
+        var feedback = new Domain.Entities.Feedback
+        {
+            Id = Guid.NewGuid(),
+            SubmittedByUserId = Guid.NewGuid(),
+            AssignedToUserId = previousStaff.Id,
+            Status = FeedbackStatus.InProgress,
+            AssignmentHistory = new List<FeedbackAssignment> { previousAssignment }
+        };
+        SetupAssignmentActors(feedback, manager, previousStaff, invalidAssignee);
+
+        var action = () => CreateService().AssignFeedbackAsync(new AssignFeedbackRequest
+        {
+            FeedbackId = feedback.Id,
+            AssignToUserId = invalidAssignee.Id
+        }, manager.Id);
+
+        await action.Should().ThrowAsync<BusinessRuleException>();
+        feedback.AssignedToUserId.Should().Be(previousStaff.Id);
+        feedback.Status.Should().Be(FeedbackStatus.InProgress);
+        previousAssignment.IsActive.Should().BeTrue();
+        feedback.AssignmentHistory.Should().ContainSingle();
+        feedback.StatusHistory.Should().BeEmpty();
+        _feedbacks.Verify(repository => repository.AddAssignmentAsync(
+            It.IsAny<FeedbackAssignment>(), It.IsAny<CancellationToken>()), Times.Never);
+        _feedbacks.Verify(repository => repository.AddStatusHistoryAsync(
+            It.IsAny<FeedbackStatusHistory>(), It.IsAny<CancellationToken>()), Times.Never);
+        _unitOfWork.Verify(unit => unit.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -303,6 +522,26 @@ public class FeedbackAssignmentServiceTests
 
         await action.Should().ThrowAsync<ForbiddenException>()
             .WithMessage("*internal assignment history*");
+    }
+
+    private void SetupAssignmentActors(
+        Domain.Entities.Feedback feedback,
+        User manager,
+        User previousStaff,
+        User targetAssignee)
+    {
+        _feedbacks.Setup(repository => repository.GetByIdWithDetailsAsync(
+                feedback.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(feedback);
+        _users.Setup(repository => repository.GetByIdAsync(
+                manager.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(manager);
+        _users.Setup(repository => repository.GetByIdAsync(
+                previousStaff.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(previousStaff);
+        _users.Setup(repository => repository.GetByIdAsync(
+                targetAssignee.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(targetAssignee);
     }
 
     private FeedbackAssignmentService CreateService()

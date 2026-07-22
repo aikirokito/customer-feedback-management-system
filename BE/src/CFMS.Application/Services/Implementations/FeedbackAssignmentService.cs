@@ -74,6 +74,7 @@ public class FeedbackAssignmentService : IFeedbackAssignmentService
             throw new BusinessRuleException("Feedback cannot be assigned to a disabled staff account.");
         }
 
+        var previousStatus = feedback.Status;
         foreach (var activeAssignment in feedback.AssignmentHistory.Where(a => a.IsActive))
         {
             activeAssignment.IsActive = false;
@@ -96,16 +97,18 @@ public class FeedbackAssignmentService : IFeedbackAssignmentService
         feedback.DepartmentId ??= assignee.DepartmentId;
         feedback.UpdatedAtUtc = DateTime.UtcNow;
 
-        if (feedback.Status == FeedbackStatus.Submitted)
+        if (previousStatus is FeedbackStatus.Submitted or FeedbackStatus.InProgress)
         {
             feedback.Status = FeedbackStatus.Assigned;
             var statusHistory = new FeedbackStatusHistory
             {
                 FeedbackId = feedback.Id,
-                FromStatus = FeedbackStatus.Submitted,
+                FromStatus = previousStatus,
                 ToStatus = FeedbackStatus.Assigned,
                 ChangedByUserId = assignedByUserId,
-                Reason = "Feedback assigned to support staff."
+                Reason = previousStatus == FeedbackStatus.Submitted
+                    ? "Feedback assigned to support staff."
+                    : "Feedback reassigned to support staff and returned to ASSIGNED."
             };
             feedback.StatusHistory.Add(statusHistory);
             await _unitOfWork.Feedbacks.AddStatusHistoryAsync(statusHistory, ct);

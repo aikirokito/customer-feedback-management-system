@@ -16,7 +16,7 @@ namespace CFMS.Tests.Persistence;
 public class FeedbackAssignmentPersistenceTests
 {
     [Fact]
-    public async Task AssignThenReassign_PersistsOneHistoryRowPerAssignmentWithoutDuplicates()
+    public async Task ReassignInProgress_PersistsAssignmentSwapAndSingleResetHistoryWithoutDuplicates()
     {
         var options = new DbContextOptionsBuilder<AppDbContext>()
             .UseInMemoryDatabase($"assignment-persistence-{Guid.NewGuid()}")
@@ -65,6 +65,11 @@ public class FeedbackAssignmentPersistenceTests
             history.ToStatus == FeedbackStatus.Assigned);
 
         context.ChangeTracker.Clear();
+        var feedbackInProgress = await context.Feedbacks.SingleAsync(item => item.Id == feedback.Id);
+        feedbackInProgress.Status = FeedbackStatus.InProgress;
+        await context.SaveChangesAsync();
+
+        context.ChangeTracker.Clear();
         await service.AssignFeedbackAsync(new AssignFeedbackRequest
         {
             FeedbackId = feedback.Id,
@@ -91,6 +96,10 @@ public class FeedbackAssignmentPersistenceTests
         persistedStatusHistory.Should().ContainSingle(history =>
             history.FromStatus == FeedbackStatus.Submitted &&
             history.ToStatus == FeedbackStatus.Assigned);
+        persistedStatusHistory.Should().ContainSingle(history =>
+            history.FromStatus == FeedbackStatus.InProgress &&
+            history.ToStatus == FeedbackStatus.Assigned);
+        persistedStatusHistory.Should().HaveCount(2);
     }
 
     private static User CreateUser(string email, UserRole role)
