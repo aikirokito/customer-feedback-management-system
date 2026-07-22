@@ -96,6 +96,11 @@ public class FeedbackService : IFeedbackService
     /// <summary>Tạo phản hồi mới ở trạng thái SUBMITTED cho Customer đã xác thực.</summary>
     public async Task<FeedbackDetailDto> CreateFeedbackAsync(CreateFeedbackRequest request, Guid submittedByUserId, CancellationToken ct = default)
     {
+        if (request.Rating is null or < 1 or > 5)
+        {
+            throw new ValidationException(["Rating is required and must be between 1 and 5."]);
+        }
+
         var user = await GetCurrentUserAsync(submittedByUserId, ct);
         if (user.Role != UserRole.Customer)
         {
@@ -120,6 +125,7 @@ public class FeedbackService : IFeedbackService
             CategoryId = category.Id,
             Category = category,
             DepartmentId = category.DepartmentId,
+            Rating = request.Rating.Value,
             Status = FeedbackStatus.Submitted,
             Priority = FeedbackPriority.Medium,
             SubmittedByUserId = submittedByUserId
@@ -155,6 +161,11 @@ public class FeedbackService : IFeedbackService
     /// </summary>
     public async Task<FeedbackDetailDto> UpdateFeedbackAsync(Guid id, UpdateFeedbackRequest request, Guid requestingUserId, CancellationToken ct = default)
     {
+        if (request.Rating is < 1 or > 5)
+        {
+            throw new ValidationException(["Rating must be between 1 and 5."]);
+        }
+
         var feedback = await _unitOfWork.Feedbacks.GetByIdWithDetailsAsync(id, ct)
             ?? throw new NotFoundException(nameof(Feedback), id);
         var user = await GetCurrentUserAsync(requestingUserId, ct);
@@ -212,6 +223,8 @@ public class FeedbackService : IFeedbackService
         feedback.CategoryId = category.Id;
         feedback.Category = category;
         feedback.DepartmentId = category.DepartmentId;
+        if (request.Rating.HasValue)
+            feedback.Rating = request.Rating.Value;
         // Customer không được tự thay đổi mức ưu tiên; Manager/Staff mới có quyền này.
         if (user.Role != UserRole.Customer)
             feedback.Priority = request.Priority;
@@ -249,46 +262,6 @@ public class FeedbackService : IFeedbackService
 
         var detail = await _unitOfWork.Feedbacks.GetByIdWithDetailsAsync(feedback.Id, ct) ?? feedback;
         var result = _mapper.Map<FeedbackDetailDto>(detail);
-        await PopulateAttachmentUrlsAsync(detail, result);
-        return result;
-    }
-
-    public async Task<FeedbackDetailDto> RateFeedbackAsync(Guid id, RateFeedbackRequest request, Guid requestingUserId, CancellationToken ct = default)
-    {
-        var feedback = await _unitOfWork.Feedbacks.GetByIdWithDetailsAsync(id, ct)
-            ?? throw new NotFoundException(nameof(Feedback), id);
-        var user = await GetCurrentUserAsync(requestingUserId, ct);
-
-        if (user.Role != UserRole.Customer || feedback.SubmittedByUserId != requestingUserId)
-        {
-            throw new ForbiddenException("Only the customer who submitted feedback can rate it.");
-        }
-
-        if (feedback.Status is not (FeedbackStatus.Resolved or FeedbackStatus.Closed))
-        {
-            throw new BusinessRuleException("Feedback can only be rated after it is resolved or closed.");
-        }
-
-        var previousRating = feedback.Rating;
-        feedback.Rating = request.Rating;
-        feedback.UpdatedAtUtc = DateTime.UtcNow;
-        await _unitOfWork.SaveChangesAsync(ct);
-
-        await _auditLogService.LogAsync(
-            requestingUserId,
-            AuditAction.Update,
-            nameof(Feedback),
-            feedback.Id,
-            $"Rating={previousRating}",
-            $"Rating={feedback.Rating}",
-            null,
-            ct);
-
-        var detail = await _unitOfWork.Feedbacks.GetByIdWithDetailsAsync(feedback.Id, ct) ?? feedback;
-        var result = _mapper.Map<FeedbackDetailDto>(detail);
-        result.Responses = result.Responses.Where(response => !response.IsInternal).OrderBy(response => response.CreatedAtUtc).ToList();
-        result.Comments = result.Comments.Where(comment => !comment.ParentCommentId.HasValue).OrderBy(comment => comment.CreatedAtUtc).ToList();
-        result.StatusHistory = result.StatusHistory.OrderBy(history => history.ChangedAtUtc).ToList();
         await PopulateAttachmentUrlsAsync(detail, result);
         return result;
     }

@@ -14,6 +14,7 @@ const SubmitFeedbackPage = () => {
     title: '',
     description: '',
     categoryId: '',
+    rating: '',
   });
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -64,7 +65,7 @@ const SubmitFeedbackPage = () => {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    const validation = validateFeedbackContent(form);
+    const validation = validateFeedbackContent(form, { requireRating: true });
     setFieldErrors(validation.errors);
 
     if (Object.keys(validation.errors).length > 0) {
@@ -83,6 +84,7 @@ const SubmitFeedbackPage = () => {
         title: validation.values.title,
         description: validation.values.description,
         categoryId: form.categoryId,
+        rating: validation.values.rating,
       });
       const feedbackId = response.data?.id;
 
@@ -159,6 +161,28 @@ const SubmitFeedbackPage = () => {
               aria-describedby={fieldErrors.description ? 'feedback-description-error' : undefined}
             />
             {fieldErrors.description && <small id="feedback-description-error" className="text-danger">{fieldErrors.description}</small>}
+          </div>
+
+          <div className="form-group">
+            <label className="form-label" htmlFor="feedback-rating">Đánh giá *</label>
+            <select
+              id="feedback-rating"
+              name="rating"
+              className="form-control"
+              required
+              value={form.rating}
+              onChange={handleChange}
+              aria-invalid={Boolean(fieldErrors.rating)}
+              aria-describedby={fieldErrors.rating ? 'feedback-rating-error' : undefined}
+            >
+              <option value="">-- Chọn mức đánh giá --</option>
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+              <option value="5">5</option>
+            </select>
+            {fieldErrors.rating && <small id="feedback-rating-error" className="text-danger">{fieldErrors.rating}</small>}
           </div>
 
           <div className="form-group">

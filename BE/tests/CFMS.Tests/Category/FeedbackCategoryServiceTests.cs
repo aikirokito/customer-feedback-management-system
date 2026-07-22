@@ -219,7 +219,8 @@ public class FeedbackCategorySubmissionTests
         {
             Title = "Test",
             Description = "Test feedback",
-            CategoryId = category.Id
+            CategoryId = category.Id,
+            Rating = 3
         }, customer.Id);
 
         await action.Should().ThrowAsync<BusinessRuleException>()
@@ -253,7 +254,8 @@ public class FeedbackCategorySubmissionTests
         {
             Title = "Service feedback",
             Description = "A detailed customer issue",
-            CategoryId = category.Id
+            CategoryId = category.Id,
+            Rating = 5
         }, customer.Id);
 
         savedFeedback.Should().NotBeNull();
@@ -262,8 +264,29 @@ public class FeedbackCategorySubmissionTests
         savedFeedback.DepartmentId.Should().Be(category.DepartmentId);
         savedFeedback.Status.Should().Be(FeedbackStatus.Submitted);
         savedFeedback.Priority.Should().Be(FeedbackPriority.Medium);
+        savedFeedback.Rating.Should().Be(5);
         savedFeedback.StatusHistory.Should().ContainSingle(x =>
             x.FromStatus == FeedbackStatus.Submitted && x.ToStatus == FeedbackStatus.Submitted);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData(0)]
+    [InlineData(6)]
+    public async Task CreateFeedback_WithInvalidRating_DoesNotPersistOrCreateHistory(int? rating)
+    {
+        var action = () => CreateService().CreateFeedbackAsync(new CreateFeedbackRequest
+        {
+            Title = "Valid title",
+            Description = "Valid description",
+            CategoryId = Guid.NewGuid(),
+            Rating = rating
+        }, Guid.NewGuid());
+
+        var exception = await action.Should().ThrowAsync<ValidationException>();
+        exception.Which.Errors.Should().Contain(error => error.Contains("Rating"));
+        _feedbacks.Verify(x => x.AddAsync(It.IsAny<Domain.Entities.Feedback>(), It.IsAny<CancellationToken>()), Times.Never);
+        _unitOfWork.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 
     private FeedbackService CreateService()

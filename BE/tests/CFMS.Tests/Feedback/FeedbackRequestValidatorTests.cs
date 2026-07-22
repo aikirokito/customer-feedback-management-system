@@ -1,14 +1,97 @@
+using AutoMapper;
 using CFMS.Application.DTOs.Feedback;
+using CFMS.Application.Mappings;
 using CFMS.Application.Validators.Feedback;
+using CFMS.Domain.Entities;
 using CFMS.Domain.Enums;
 using FluentAssertions;
 using FluentValidation.Results;
+using Microsoft.Extensions.Logging.Abstractions;
+using System.Text.Json;
 using Xunit;
 
 namespace CFMS.Tests.Feedback;
 
 public class FeedbackRequestValidatorTests
 {
+    [Theory]
+    [InlineData(null, false)]
+    [InlineData(0, false)]
+    [InlineData(1, true)]
+    [InlineData(5, true)]
+    [InlineData(6, false)]
+    public void CreateValidator_RequiresRatingFromOneThroughFive(int? rating, bool shouldBeValid)
+    {
+        var result = new CreateFeedbackRequestValidator().Validate(new CreateFeedbackRequest
+        {
+            Title = "Valid title",
+            Description = "Valid description",
+            CategoryId = Guid.NewGuid(),
+            Rating = rating
+        });
+
+        if (shouldBeValid)
+            result.Errors.Should().NotContain(error => error.PropertyName == nameof(CreateFeedbackRequest.Rating));
+        else
+            result.Errors.Should().Contain(error => error.PropertyName == nameof(CreateFeedbackRequest.Rating));
+    }
+
+    [Theory]
+    [InlineData(0, false)]
+    [InlineData(1, true)]
+    [InlineData(5, true)]
+    [InlineData(6, false)]
+    public void UpdateValidator_ValidatesRatingWhenProvided(int rating, bool shouldBeValid)
+    {
+        var result = new UpdateFeedbackRequestValidator().Validate(new UpdateFeedbackRequest
+        {
+            Title = "Valid title",
+            Description = "Valid description",
+            CategoryId = Guid.NewGuid(),
+            Priority = FeedbackPriority.Medium,
+            Rating = rating
+        });
+
+        if (shouldBeValid)
+            result.Errors.Should().NotContain(error => error.PropertyName == nameof(UpdateFeedbackRequest.Rating));
+        else
+            result.Errors.Should().Contain(error => error.PropertyName == nameof(UpdateFeedbackRequest.Rating));
+    }
+
+    [Fact]
+    public void CreateRequest_WithNonIntegerRating_CannotBeDeserialized()
+    {
+        const string json = """{"title":"Valid title","description":"Valid description","categoryId":"00000000-0000-0000-0000-000000000001","rating":1.5}""";
+
+        var action = () => JsonSerializer.Deserialize<CreateFeedbackRequest>(
+            json,
+            new JsonSerializerOptions(JsonSerializerDefaults.Web));
+
+        action.Should().Throw<JsonException>();
+    }
+
+    [Fact]
+    public void DetailMapping_PreservesHistoricalNullRating()
+    {
+        var customer = new User { FirstName = "Historical", LastName = "Customer" };
+        var category = new FeedbackCategoryEntity { Name = "Legacy" };
+        var feedback = new Domain.Entities.Feedback
+        {
+            Title = "Legacy feedback",
+            Description = "Historical feedback without rating",
+            SubmittedByUser = customer,
+            Category = category,
+            Rating = null
+        };
+        var configuration = new MapperConfiguration(
+            config => config.AddProfile<FeedbackMappingProfile>(),
+            NullLoggerFactory.Instance);
+
+        var result = configuration.CreateMapper().Map<FeedbackDetailDto>(feedback);
+
+        result.Rating.Should().BeNull();
+    }
+
     [Theory]
     [InlineData(4, false)]
     [InlineData(5, true)]
@@ -88,14 +171,16 @@ public class FeedbackRequestValidatorTests
             {
                 Title = title,
                 Description = description,
-                CategoryId = categoryId
+                CategoryId = categoryId,
+                Rating = 3
             }),
             new UpdateFeedbackRequestValidator().Validate(new UpdateFeedbackRequest
             {
                 Title = title,
                 Description = description,
                 CategoryId = categoryId,
-                Priority = FeedbackPriority.Medium
+                Priority = FeedbackPriority.Medium,
+                Rating = 3
             })
         ];
     }

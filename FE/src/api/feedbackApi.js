@@ -4,6 +4,7 @@ const normalizeFeedbackPayload = (data) => ({
   title: data.title,
   description: data.description,
   categoryId: data.categoryId,
+  rating: Number(data.rating),
 });
 
 const normalizeStatusPayload = (data) => ({
@@ -55,7 +56,6 @@ const feedbackApi = {
   managePriority: (id, data) => axiosClient.patch(`/Feedback/${id}/priority`, {
     priority: data.priority,
   }),
-  rateFeedback: (id, rating) => axiosClient.patch(`/Feedback/${id}/rating`, { rating: Number(rating) }),
   getAssignmentHistory: (id) => axiosClient.get(`/Feedback/${id}/assignments`).then(asListResponse),
   unassignFeedback: (id) => axiosClient.delete(`/Feedback/${id}/assignments`),
 

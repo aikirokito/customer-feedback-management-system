@@ -7,6 +7,7 @@ public class CreateFeedbackRequest
     public string Title { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public Guid CategoryId { get; set; }
+    public int? Rating { get; set; }
 }
 
 public class UpdateFeedbackRequest
@@ -15,17 +16,13 @@ public class UpdateFeedbackRequest
     public string Description { get; set; } = string.Empty;
     public Guid CategoryId { get; set; }
     public FeedbackPriority Priority { get; set; }
+    public int? Rating { get; set; }
 }
 
 
 public class UpdateFeedbackPriorityRequest
 {
     public FeedbackPriority Priority { get; set; }
-}
-
-public class RateFeedbackRequest
-{
-    public int Rating { get; set; }
 }
 
 public class ChangeFeedbackStatusRequest

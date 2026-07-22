@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import feedbackApi from '../api/feedbackApi';
 import userApi from '../api/userApi';
 import { useAuth } from '../context/AuthContext';
-import { validateFeedbackContent } from '../utils/feedbackValidation';
+import { formatFeedbackRating, validateFeedbackContent } from '../utils/feedbackValidation';
 
 const isClosed = (status) => status === 'Closed';
 const isConversationLocked = (status) => status === 'Closed' || status === 'Cancelled';
@@ -33,8 +33,6 @@ const FeedbackDetailPage = () => {
   const [submittingReply, setSubmittingReply] = useState(false);
   const [isInternalReply, setIsInternalReply] = useState(false);
   const [replyParentId, setReplyParentId] = useState(null);
-  const [rating, setRating] = useState('');
-  const [ratingLoading, setRatingLoading] = useState(false);
   const [attachmentFiles, setAttachmentFiles] = useState([]);
   const [attachmentLoading, setAttachmentLoading] = useState(false);
   const [assignmentHistory, setAssignmentHistory] = useState([]);
@@ -63,7 +61,6 @@ const FeedbackDetailPage = () => {
       const res = await feedbackApi.getFeedbackById(id);
       setFeedback(res.data);
       setNewPriority(res.data?.priority || 'Medium');
-      setRating(res.data?.rating ? String(res.data.rating) : '');
       setEditForm({
         title: res.data?.title || '',
         description: res.data?.description || '',
@@ -197,20 +194,6 @@ const FeedbackDetailPage = () => {
     }
   };
 
-  const handleRate = async () => {
-    if (!rating) return;
-    setRatingLoading(true);
-    try {
-      await feedbackApi.rateFeedback(id, rating);
-      showWfMessage('Cảm ơn bạn đã đánh giá chất lượng hỗ trợ.');
-      await fetchDetail();
-    } catch (err) {
-      showWfMessage('Lỗi: ' + (err.normalizedMessage || err.message), 'error');
-    } finally {
-      setRatingLoading(false);
-    }
-  };
-
   const handleUploadAttachments = async () => {
     if (attachmentFiles.length === 0) return;
     setAttachmentLoading(true);
@@ -302,7 +285,6 @@ const FeedbackDetailPage = () => {
 
   const availableStatuses = (STATUS_TRANSITIONS[feedback.status] || []).filter((status) => status !== 'Assigned');
   const needsReason = nextStatus === 'Closed';
-  const canRate = !isStaff && ['Resolved', 'Closed'].includes(feedback.status);
   const isAdmin = hasRole('SystemAdmin');
   const canDeleteFeedback = !isStaff && feedback.status === 'Submitted';
   const renderComment = (comment, depth = 0) => {
@@ -353,7 +335,7 @@ const FeedbackDetailPage = () => {
           <p><strong>Người gửi:</strong> {feedback.submittedByUserName || feedback.customer?.fullName || feedback.customer?.email || '---'}</p>
           <p><strong>Danh mục:</strong> {feedback.category || feedback.category?.name || '---'}</p>
           {isStaff && <p><strong>Mức độ ưu tiên:</strong> {feedback.priority}</p>}
-          <p><strong>Đánh giá:</strong> {feedback.rating ? `${feedback.rating}/5` : 'Không đánh giá'}</p>
+          <p><strong>Đánh giá:</strong> {formatFeedbackRating(feedback.rating)}</p>
           {feedback.assignedToUserName && <p><strong>Người xử lý:</strong> {feedback.assignedToUserName}</p>}
         </div>
 
@@ -380,23 +362,6 @@ const FeedbackDetailPage = () => {
           </div>
         )}
       </div>
-
-      {canRate && (
-        <div className="card mb-4">
-          <div className="card-header"><h3 className="card-title">Đánh giá chất lượng hỗ trợ</h3></div>
-          <div className="flex gap-3" style={{ alignItems: 'center', flexWrap: 'wrap' }}>
-            <select className="form-control" style={{ maxWidth: 300 }} value={rating} onChange={(event) => setRating(event.target.value)}>
-              <option value="">-- Chọn mức đánh giá --</option>
-              <option value="1">1 - Rất không hài lòng</option>
-              <option value="2">2 - Không hài lòng</option>
-              <option value="3">3 - Bình thường</option>
-              <option value="4">4 - Hài lòng</option>
-              <option value="5">5 - Rất hài lòng</option>
-            </select>
-            <button className="btn btn-primary" disabled={!rating || ratingLoading || Number(rating) === feedback.rating} onClick={handleRate}>{ratingLoading ? 'Đang lưu...' : 'Gửi đánh giá'}</button>
-          </div>
-        </div>
-      )}
 
       {/* ============================================================ */}
       {/* Staff Workflow Panel — hidden from Customers                  */}
