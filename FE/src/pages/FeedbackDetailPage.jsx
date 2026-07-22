@@ -23,8 +23,6 @@ const FeedbackDetailPage = () => {
   const [submittingReply, setSubmittingReply] = useState(false);
   const [isInternalReply, setIsInternalReply] = useState(false);
   const [replyParentId, setReplyParentId] = useState(null);
-  const [attachmentFiles, setAttachmentFiles] = useState([]);
-  const [attachmentLoading, setAttachmentLoading] = useState(false);
   const [assignmentHistory, setAssignmentHistory] = useState([]);
   const [categories, setCategories] = useState([]);
   const [editingFeedback, setEditingFeedback] = useState(false);
@@ -146,31 +144,6 @@ const FeedbackDetailPage = () => {
       showWfMessage('Lỗi: ' + (err.normalizedMessage || err.message), 'error');
     } finally {
       setAssignLoading(false);
-    }
-  };
-
-  const handleUploadAttachments = async () => {
-    if (attachmentFiles.length === 0) return;
-    setAttachmentLoading(true);
-    try {
-      await Promise.all(attachmentFiles.map((file) => feedbackApi.uploadAttachment(id, file)));
-      setAttachmentFiles([]);
-      showWfMessage('Đã tải tệp đính kèm.');
-      await fetchDetail();
-    } catch (err) {
-      showWfMessage('Lỗi: ' + (err.normalizedMessage || err.message), 'error');
-    } finally {
-      setAttachmentLoading(false);
-    }
-  };
-
-  const handleDeleteAttachment = async (attachment) => {
-    if (!window.confirm(`Xóa tệp "${attachment.fileName}"?`)) return;
-    try {
-      await feedbackApi.deleteAttachment(id, attachment.id);
-      await fetchDetail();
-    } catch (err) {
-      showWfMessage('Lỗi: ' + (err.normalizedMessage || err.message), 'error');
     }
   };
 
@@ -297,25 +270,6 @@ const FeedbackDetailPage = () => {
         <div className="p-4" style={{ background: 'var(--bg-input)', borderRadius: 'var(--radius-sm)' }}>
           <p className="preserve-wrap">{feedback.description}</p>
         </div>
-        {feedback.attachments?.length > 0 && (
-          <div style={{ marginTop: '1rem' }}>
-            <h3 style={{ fontSize: '1rem', marginBottom: '0.5rem' }}>Tệp đính kèm</h3>
-            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-              {feedback.attachments.map((attachment) => <div key={attachment.id} className="flex gap-2">
-                <a className="btn btn-sm btn-secondary" href={attachment.publicUrl} target="_blank" rel="noreferrer">{attachment.fileName}</a>
-                {actionPolicy.canManageAttachments && attachment.uploadedByUserId === user?.id && (
-                  <button className="btn btn-sm btn-danger" type="button" onClick={() => handleDeleteAttachment(attachment)}>Xóa</button>
-                )}
-              </div>)}
-            </div>
-          </div>
-        )}
-        {actionPolicy.canManageAttachments && (feedback.attachments?.length || 0) < 3 && (
-          <div style={{ marginTop: '1rem', display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
-            <input className="form-control" style={{ maxWidth: 420 }} type="file" multiple accept=".jpg,.jpeg,.png,.gif,.pdf,.docx,.xlsx" onChange={(event) => setAttachmentFiles(Array.from(event.target.files || []).slice(0, 3 - (feedback.attachments?.length || 0)))} />
-            <button type="button" className="btn btn-secondary" disabled={attachmentLoading || attachmentFiles.length === 0} onClick={handleUploadAttachments}>{attachmentLoading ? 'Đang tải...' : 'Tải tệp'}</button>
-          </div>
-        )}
       </div>
 
       {canEditFeedback && editingFeedback && (

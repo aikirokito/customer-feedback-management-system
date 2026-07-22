@@ -22,8 +22,6 @@ export const getFeedbackActionPolicy = (user, feedback) => {
     canAssign: isManager && status === 'Submitted',
     canReassign: isManager && (status === 'Assigned' || status === 'InProgress'),
     canClose: isManager && status === 'Resolved',
-    canManageAttachments: (isOwner && status === 'Submitted')
-      || (isAssignedStaff && STAFF_ACTIONABLE_STATUSES.has(status)),
     hasManagementActions: (isAssignedStaff && STAFF_ACTIONABLE_STATUSES.has(status))
       || (isManager && MANAGER_ASSIGNABLE_STATUSES.has(status))
       || (isManager && status === 'Resolved'),

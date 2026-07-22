@@ -59,16 +59,6 @@ const feedbackApi = {
   getAssignmentHistory: (id) => axiosClient.get(`/Feedback/${id}/assignments`).then(asListResponse),
   unassignFeedback: (id) => axiosClient.delete(`/Feedback/${id}/assignments`),
 
-  uploadAttachment: (id, file) => {
-    const formData = new FormData();
-    formData.append('file', file);
-    return axiosClient.post(`/Feedback/${id}/attachments`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-  },
-  deleteAttachment: (feedbackId, attachmentId) =>
-    axiosClient.delete(`/Feedback/${feedbackId}/attachments/${attachmentId}`),
-
   getCategories: () => axiosClient.get('/Categories'),
   getAllCategories: () => axiosClient.get('/admin/categories'),
   createCategory: (data) => axiosClient.post('/admin/categories', data),

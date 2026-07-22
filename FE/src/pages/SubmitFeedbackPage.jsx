@@ -3,10 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import feedbackApi from '../api/feedbackApi';
 import { validateFeedbackContent } from '../utils/feedbackValidation';
 
-const MAX_FILES = 3;
-const MAX_FILE_SIZE = 5 * 1024 * 1024;
-const ALLOWED_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'pdf', 'docx', 'xlsx'];
-
 const SubmitFeedbackPage = () => {
   const navigate = useNavigate();
   const [categories, setCategories] = useState([]);
@@ -16,7 +12,6 @@ const SubmitFeedbackPage = () => {
     categoryId: '',
     rating: '',
   });
-  const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState({});
@@ -40,29 +35,6 @@ const SubmitFeedbackPage = () => {
     setError('');
   };
 
-  const handleFilesChange = (event) => {
-    const selectedFiles = Array.from(event.target.files || []);
-    if (selectedFiles.length > MAX_FILES) {
-      setError(`Chỉ được tải lên tối đa ${MAX_FILES} tệp.`);
-      event.target.value = '';
-      return;
-    }
-
-    const invalidFile = selectedFiles.find((file) => {
-      const extension = file.name.split('.').pop()?.toLowerCase();
-      return file.size > MAX_FILE_SIZE || !ALLOWED_EXTENSIONS.includes(extension);
-    });
-
-    if (invalidFile) {
-      setError(`Tệp "${invalidFile.name}" không hợp lệ. Mỗi tệp tối đa 5 MB và phải đúng định dạng cho phép.`);
-      event.target.value = '';
-      return;
-    }
-
-    setFiles(selectedFiles);
-    setError('');
-  };
-
   const handleSubmit = async (event) => {
     event.preventDefault();
     const validation = validateFeedbackContent(form, { requireRating: true });
@@ -80,18 +52,12 @@ const SubmitFeedbackPage = () => {
     setLoading(true);
     setError('');
     try {
-      const response = await feedbackApi.submitFeedback({
+      await feedbackApi.submitFeedback({
         title: validation.values.title,
         description: validation.values.description,
         categoryId: form.categoryId,
         rating: validation.values.rating,
       });
-      const feedbackId = response.data?.id;
-
-      if (feedbackId && files.length > 0) {
-        await Promise.all(files.map((file) => feedbackApi.uploadAttachment(feedbackId, file)));
-      }
-
       navigate('/my-feedbacks', {
         state: { successMsg: 'Gửi phản hồi thành công!' },
         replace: true,
@@ -183,19 +149,6 @@ const SubmitFeedbackPage = () => {
               <option value="5">5</option>
             </select>
             {fieldErrors.rating && <small id="feedback-rating-error" className="text-danger">{fieldErrors.rating}</small>}
-          </div>
-
-          <div className="form-group">
-            <label className="form-label" htmlFor="feedback-files">Tệp đính kèm (tối đa 3 tệp)</label>
-            <input
-              id="feedback-files"
-              type="file"
-              className="form-control"
-              multiple
-              accept=".jpg,.jpeg,.png,.gif,.pdf,.docx,.xlsx"
-              onChange={handleFilesChange}
-            />
-            <small className="text-muted">Mỗi tệp tối đa 5 MB.</small>
           </div>
 
           <button type="submit" className="btn btn-primary" disabled={loading || categories.length === 0}>
