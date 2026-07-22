@@ -336,6 +336,48 @@ public class FeedbackAssignmentServiceTests
     }
 
     [Fact]
+    public async Task ReassignFeedback_DisabledStaffIsRejectedWithoutPartialChanges()
+    {
+        var manager = new User { Id = Guid.NewGuid(), Role = UserRole.DepartmentManager, Status = UserStatus.Active };
+        var previousStaff = new User { Id = Guid.NewGuid(), Role = UserRole.SupportStaff, Status = UserStatus.Active };
+        var inactiveStaff = new User { Id = Guid.NewGuid(), Role = UserRole.SupportStaff, Status = UserStatus.Disabled };
+        var previousAssignment = new FeedbackAssignment
+        {
+            AssignedToUserId = previousStaff.Id,
+            AssignedByUserId = manager.Id,
+            IsActive = true
+        };
+        var feedback = new Domain.Entities.Feedback
+        {
+            Id = Guid.NewGuid(),
+            SubmittedByUserId = Guid.NewGuid(),
+            AssignedToUserId = previousStaff.Id,
+            Status = FeedbackStatus.InProgress,
+            AssignmentHistory = new List<FeedbackAssignment> { previousAssignment }
+        };
+        SetupAssignmentActors(feedback, manager, previousStaff, inactiveStaff);
+
+        var action = () => CreateService().AssignFeedbackAsync(new AssignFeedbackRequest
+        {
+            FeedbackId = feedback.Id,
+            AssignToUserId = inactiveStaff.Id
+        }, manager.Id);
+
+        await action.Should().ThrowAsync<BusinessRuleException>()
+            .WithMessage("*disabled staff account*");
+        feedback.AssignedToUserId.Should().Be(previousStaff.Id);
+        feedback.Status.Should().Be(FeedbackStatus.InProgress);
+        previousAssignment.IsActive.Should().BeTrue();
+        feedback.AssignmentHistory.Should().ContainSingle();
+        feedback.StatusHistory.Should().BeEmpty();
+        _feedbacks.Verify(repository => repository.AddAssignmentAsync(
+            It.IsAny<FeedbackAssignment>(), It.IsAny<CancellationToken>()), Times.Never);
+        _feedbacks.Verify(repository => repository.AddStatusHistoryAsync(
+            It.IsAny<FeedbackStatusHistory>(), It.IsAny<CancellationToken>()), Times.Never);
+        _unitOfWork.Verify(unit => unit.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
     public async Task AssignFeedback_ActiveStaffWithoutDepartment_IsAllowed()
     {
         var manager = new User
@@ -552,6 +594,60 @@ public class FeedbackAssignmentServiceTests
 
         await action.Should().ThrowAsync<ForbiddenException>()
             .WithMessage("*internal assignment history*");
+    }
+
+    [Fact]
+    public async Task GetAssignmentHistory_WhenAssignedStaffIsNowInactive_RemainsReadable()
+    {
+        var manager = new User { Id = Guid.NewGuid(), Role = UserRole.DepartmentManager, Status = UserStatus.Active };
+        var inactiveStaff = new User
+        {
+            Id = Guid.NewGuid(),
+            FirstName = "Former",
+            LastName = "Staff",
+            Role = UserRole.SupportStaff,
+            Status = UserStatus.Disabled
+        };
+        var historicalAssignment = new FeedbackAssignment
+        {
+            Id = Guid.NewGuid(),
+            AssignedToUserId = inactiveStaff.Id,
+            AssignedToUser = inactiveStaff,
+            AssignedByUserId = manager.Id,
+            AssignedByUser = manager,
+            IsActive = false
+        };
+        var feedback = new Domain.Entities.Feedback
+        {
+            Id = Guid.NewGuid(),
+            SubmittedByUserId = Guid.NewGuid(),
+            Status = FeedbackStatus.Resolved,
+            AssignmentHistory = new List<FeedbackAssignment> { historicalAssignment }
+        };
+        historicalAssignment.FeedbackId = feedback.Id;
+        _feedbacks.Setup(repository => repository.GetByIdWithDetailsAsync(
+                feedback.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(feedback);
+        _users.Setup(repository => repository.GetByIdAsync(
+                manager.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(manager);
+        _mapper.Setup(mapper => mapper.Map<IEnumerable<AssignmentDto>>(It.IsAny<object>()))
+            .Returns((object source) => ((IEnumerable<FeedbackAssignment>)source)
+                .Select(assignment => new AssignmentDto
+                {
+                    Id = assignment.Id,
+                    FeedbackId = assignment.FeedbackId,
+                    AssignedToUserName = assignment.AssignedToUser.FullName,
+                    IsActive = assignment.IsActive
+                })
+                .ToList());
+
+        var history = await CreateService().GetAssignmentHistoryAsync(feedback.Id, manager.Id);
+
+        history.Should().ContainSingle(item =>
+            item.Id == historicalAssignment.Id &&
+            item.AssignedToUserName == "Former Staff" &&
+            !item.IsActive);
     }
 
     private void SetupAssignmentActors(
