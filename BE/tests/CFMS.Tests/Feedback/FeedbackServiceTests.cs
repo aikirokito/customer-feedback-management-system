@@ -238,6 +238,131 @@ public class FeedbackServiceTests
     }
 
     [Fact]
+    public async Task ChangeStatus_ToResolvedWithOnlyCustomerComment_RejectsWithoutChangingAggregateOrSaving()
+    {
+        var staff = new User
+        {
+            Id = Guid.NewGuid(),
+            Role = UserRole.SupportStaff,
+            Status = UserStatus.Active
+        };
+        var customer = new User
+        {
+            Id = Guid.NewGuid(),
+            Role = UserRole.Customer,
+            Status = UserStatus.Active
+        };
+        var feedback = new Domain.Entities.Feedback
+        {
+            Id = Guid.NewGuid(),
+            Title = "Needs an official response",
+            SubmittedByUserId = customer.Id,
+            AssignedToUserId = staff.Id,
+            Status = FeedbackStatus.InProgress
+        };
+        feedback.Comments.Add(new FeedbackComment
+        {
+            FeedbackId = feedback.Id,
+            AuthorUserId = customer.Id,
+            AuthorUser = customer,
+            Content = "Legacy discussion comment"
+        });
+
+        var unitOfWork = new Mock<IUnitOfWork>();
+        var feedbacks = new Mock<IFeedbackRepository>();
+        var users = new Mock<IUserRepository>();
+        unitOfWork.SetupGet(unit => unit.Feedbacks).Returns(feedbacks.Object);
+        unitOfWork.SetupGet(unit => unit.Users).Returns(users.Object);
+        feedbacks.Setup(repository => repository.GetByIdWithDetailsAsync(feedback.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(feedback);
+        users.Setup(repository => repository.GetByIdAsync(staff.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(staff);
+        var service = new FeedbackService(
+            unitOfWork.Object,
+            Mock.Of<IMapper>(),
+            Mock.Of<INotificationService>(),
+            Mock.Of<IAuditLogService>(),
+            Mock.Of<ISupabaseStorageService>());
+
+        var action = () => service.ChangeStatusAsync(feedback.Id, new ChangeFeedbackStatusRequest
+        {
+            NewStatus = FeedbackStatus.Resolved
+        }, staff.Id);
+
+        await action.Should().ThrowAsync<BusinessRuleException>()
+            .WithMessage("*Staff response*");
+        feedback.Status.Should().Be(FeedbackStatus.InProgress);
+        feedback.ResolvedAtUtc.Should().BeNull();
+        feedback.StatusHistory.Should().BeEmpty();
+        feedbacks.Verify(repository => repository.AddStatusHistoryAsync(
+            It.IsAny<FeedbackStatusHistory>(), It.IsAny<CancellationToken>()), Times.Never);
+        unitOfWork.Verify(unit => unit.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task ChangeStatus_ToResolvedWithPublicStaffResponse_UpdatesStatusAndSavesHistory()
+    {
+        var staff = new User
+        {
+            Id = Guid.NewGuid(),
+            Role = UserRole.SupportStaff,
+            Status = UserStatus.Active
+        };
+        var feedback = new Domain.Entities.Feedback
+        {
+            Id = Guid.NewGuid(),
+            Title = "Ready to resolve",
+            SubmittedByUserId = Guid.NewGuid(),
+            AssignedToUserId = staff.Id,
+            Status = FeedbackStatus.InProgress
+        };
+        feedback.Responses.Add(new FeedbackResponse
+        {
+            FeedbackId = feedback.Id,
+            RespondedByUserId = staff.Id,
+            RespondedByUser = staff,
+            Content = "The issue has been handled.",
+            IsInternal = false
+        });
+
+        var unitOfWork = new Mock<IUnitOfWork>();
+        var feedbacks = new Mock<IFeedbackRepository>();
+        var users = new Mock<IUserRepository>();
+        unitOfWork.SetupGet(unit => unit.Feedbacks).Returns(feedbacks.Object);
+        unitOfWork.SetupGet(unit => unit.Users).Returns(users.Object);
+        unitOfWork.Setup(unit => unit.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(2);
+        feedbacks.Setup(repository => repository.GetByIdWithDetailsAsync(feedback.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(feedback);
+        users.Setup(repository => repository.GetByIdAsync(staff.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(staff);
+        var service = new FeedbackService(
+            unitOfWork.Object,
+            Mock.Of<IMapper>(),
+            Mock.Of<INotificationService>(),
+            Mock.Of<IAuditLogService>(),
+            Mock.Of<ISupabaseStorageService>());
+
+        await service.ChangeStatusAsync(feedback.Id, new ChangeFeedbackStatusRequest
+        {
+            NewStatus = FeedbackStatus.Resolved
+        }, staff.Id);
+
+        feedback.Status.Should().Be(FeedbackStatus.Resolved);
+        feedback.ResolvedAtUtc.Should().NotBeNull();
+        feedback.StatusHistory.Should().ContainSingle(history =>
+            history.FromStatus == FeedbackStatus.InProgress &&
+            history.ToStatus == FeedbackStatus.Resolved &&
+            history.ChangedByUserId == staff.Id);
+        feedbacks.Verify(repository => repository.AddStatusHistoryAsync(
+            It.Is<FeedbackStatusHistory>(history =>
+                history.FeedbackId == feedback.Id &&
+                history.FromStatus == FeedbackStatus.InProgress &&
+                history.ToStatus == FeedbackStatus.Resolved),
+            It.IsAny<CancellationToken>()), Times.Once);
+        unitOfWork.Verify(unit => unit.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
     public async Task RateFeedback_WhenResolvedAndOwnedByCustomer_SavesRatingAndAuditLog()
     {
         var customer = new User { Id = Guid.NewGuid(), Role = UserRole.Customer, Status = UserStatus.Active };

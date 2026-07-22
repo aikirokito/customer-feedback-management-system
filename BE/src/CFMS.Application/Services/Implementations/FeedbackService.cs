@@ -318,6 +318,15 @@ public class FeedbackService : IFeedbackService
             throw new BusinessRuleException("Assign a support staff member before moving feedback to Assigned.");
         }
 
+        if (request.NewStatus == FeedbackStatus.Resolved && !feedback.Responses.Any(response =>
+                response.FeedbackId == feedback.Id &&
+                !response.IsDeleted &&
+                !response.IsInternal &&
+                response.RespondedByUser?.Role == UserRole.SupportStaff))
+        {
+            throw new BusinessRuleException("Feedback cannot be resolved until a Staff response has been saved.");
+        }
+
         var oldStatus = feedback.Status;
         feedback.Status = request.NewStatus;
         feedback.UpdatedAtUtc = DateTime.UtcNow;
