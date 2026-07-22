@@ -314,7 +314,7 @@ const FeedbackDetailPage = () => {
             <span className="font-semibold">{comment.authorName || 'Người dùng'}</span>
             <span className="text-muted" style={{ fontSize: '0.8rem' }}>{comment.createdAtUtc ? new Date(comment.createdAtUtc).toLocaleString('vi-VN') : '---'}</span>
           </div>
-          <p style={{ whiteSpace: 'pre-wrap' }}>{comment.content}</p>
+          <p className="preserve-wrap">{comment.content}</p>
           <div className="flex gap-2" style={{ marginTop: '0.75rem' }}>
             {!isStaff && !isConversationLocked(feedback.status) && <button className="btn btn-sm btn-secondary" type="button" onClick={() => setReplyParentId(comment.id)}>Trả lời</button>}
             {canModify && <button className="btn btn-sm btn-secondary" type="button" onClick={() => editConversationItem('comment', comment)}>Sửa</button>}
@@ -358,7 +358,7 @@ const FeedbackDetailPage = () => {
         </div>
 
         <div className="p-4" style={{ background: 'var(--bg-input)', borderRadius: 'var(--radius-sm)' }}>
-          <p style={{ whiteSpace: 'pre-wrap' }}>{feedback.description}</p>
+          <p className="preserve-wrap">{feedback.description}</p>
         </div>
         {feedback.attachments?.length > 0 && (
           <div style={{ marginTop: '1rem' }}>
@@ -572,7 +572,7 @@ const FeedbackDetailPage = () => {
                   {resp.createdAtUtc ? new Date(resp.createdAtUtc).toLocaleString('vi-VN') : resp.createdAt ? new Date(resp.createdAt).toLocaleString('vi-VN') : '---'}
                 </span>
               </div>
-              <p style={{ whiteSpace: 'pre-wrap' }}>{resp.content}</p>
+              <p className="preserve-wrap">{resp.content}</p>
               {(isAdmin || (!isConversationLocked(feedback.status) && resp.respondedByUserId === user?.id)) && <div className="flex gap-2" style={{ marginTop: '0.75rem' }}><button className="btn btn-sm btn-secondary" type="button" onClick={() => editConversationItem('response', resp)}>Sửa</button><button className="btn btn-sm btn-danger" type="button" onClick={() => deleteConversationItem('response', resp)}>Xóa</button></div>}
             </div>
           ))}

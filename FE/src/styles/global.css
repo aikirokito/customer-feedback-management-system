@@ -410,6 +410,7 @@ tbody tr:last-child td { border-bottom: none; }
 .font-bold      { font-weight: 700; }
 .font-semibold  { font-weight: 600; }
 .truncate       { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.preserve-wrap  { max-width: 100%; overflow-wrap: anywhere; word-break: break-word; white-space: pre-wrap; }
 
 /* ===== RESPONSIVE ===== */
 @media (max-width: 768px) {
